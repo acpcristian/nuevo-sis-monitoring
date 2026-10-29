@@ -1,0 +1,493 @@
+openapi: 3.1.0
+info:
+  title: API de Gestión e Inventario de Servidores
+  version: 1.0.0
+  description: >
+    API REST para la administración, consulta, sondeo no intrusivo y gestión del
+    ciclo de vida de servidores en la Plataforma Empresarial de Monitoreo.
+    Cumple con los Principios II, III, IV y V de la Constitución.
+
+servers:
+  - url: /api/v1
+    description: Servidor de API principal
+
+security:
+  - BearerAuth: []
+
+paths:
+  /servers:
+    get:
+      summary: Listar inventario de servidores
+      description: >
+        Devuelve el listado de servidores con filtros opcionales. Accesible por
+        SUPERADMIN y OBSERVADOR. Las credenciales se omiten de la respuesta.
+      operationId: listServers
+      parameters:
+        - name: environment
+          in: query
+          schema:
+            type: string
+            enum: [PROD, STAGING, DEV, QA]
+        - name: os_type
+          in: query
+          schema:
+            type: string
+            enum: [LINUX, WINDOWS, OTHER]
+        - name: health_status
+          in: query
+          schema:
+            type: string
+            enum: [ONLINE, DEGRADED, UNREACHABLE, AUTH_FAILED, PENDING]
+        - name: lifecycle_state
+          in: query
+          schema:
+            type: string
+            enum: [ACTIVE, MAINTENANCE, DISABLED, RETIRED]
+            default: ACTIVE
+        - name: search
+          in: query
+          description: Búsqueda por coincidencia en nombre o dirección IP
+          schema:
+            type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+      responses:
+        '200':
+          description: Listado paginado de servidores
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServerListResponse'
+        '401':
+          $ref: '#/components/schemas/ErrorResponse'
+
+    post:
+      summary: Registrar nuevo servidor en el inventario
+      description: >
+        Crea un nuevo servidor con su referencia a credencial cifrada. Exclusivo
+        para rol SUPERADMIN. No ejecuta comandos de modificación en el servidor.
+      operationId: createServer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateServerRequest'
+      responses:
+        '201':
+          description: Servidor registrado satisfactoriamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServerDetailResponse'
+        '400':
+          description: Datos inválidos o formato incorrecto
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Denegado por permisos insuficientes (rol OBSERVADOR)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Conflicto - Nombre o IP ya registrado en el mismo entorno
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /servers/{id}:
+    get:
+      summary: Obtener detalle de un servidor
+      description: >
+        Retorna la ficha técnica y de conectividad del servidor. Los secretos
+        (claves privadas / contraseñas) NUNCA se devuelven en claro.
+      operationId: getServerById
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Ficha detallada del servidor
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServerDetailResponse'
+        '404':
+          description: Servidor no encontrado
+
+    patch:
+      summary: Actualizar metadatos de un servidor
+      description: >
+        Actualiza etiquetas, descripción, responsable o datos de conexión.
+        Exclusivo para SUPERADMIN. Permite rotar credencial sin devolver el valor anterior.
+      operationId: updateServer
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateServerRequest'
+      responses:
+        '200':
+          description: Servidor actualizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServerDetailResponse'
+        '403':
+          description: Denegado para rol OBSERVADOR
+        '404':
+          description: Servidor no encontrado
+
+    delete:
+      summary: Retirar servidor del inventario activo
+      description: >
+        Desincorpora el servidor (estado RETIRED) y purga sus credenciales en reposo.
+        Exige confirmación escribiendo el nombre del servidor. Exclusivo para SUPERADMIN.
+      operationId: retireServer
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [confirmation_name]
+              properties:
+                confirmation_name:
+                  type: string
+                  description: Nombre exacto del servidor para confirmar baja
+      responses:
+        '200':
+          description: Servidor retirado exitosamente y credenciales purgadas
+        '400':
+          description: Nombre de confirmación no coincide
+        '403':
+          description: Denegado para rol OBSERVADOR
+
+  /servers/{id}/test-connection:
+    post:
+      summary: Ejecutar prueba de conectividad inmediata
+      description: >
+        Ejecuta una comprobación de solo lectura en el servidor remoto (handshake SSH o ping/puerto WinRM).
+        Exclusivo para SUPERADMIN. Timeout estricto de 5 segundos.
+      operationId: testServerConnection
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Resultado de la prueba de conectividad
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConnectivityCheckResult'
+        '403':
+          description: Denegado para rol OBSERVADOR
+        '404':
+          description: Servidor no encontrado
+
+  /servers/{id}/lifecycle:
+    patch:
+      summary: Cambiar estado de ciclo de vida (Mantenimiento / Deshabilitar / Habilitar)
+      description: >
+        Transiciona el servidor entre ACTIVE, MAINTENANCE y DISABLED.
+        Exclusivo para SUPERADMIN.
+      operationId: changeLifecycleState
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [new_state]
+              properties:
+                new_state:
+                  type: string
+                  enum: [ACTIVE, MAINTENANCE, DISABLED]
+                reason:
+                  type: string
+                  description: Motivo del cambio de estado (requerido para MAINTENANCE)
+      responses:
+        '200':
+          description: Estado del ciclo de vida actualizado
+        '403':
+          description: Denegado para rol OBSERVADOR
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    CreateServerRequest:
+      type: object
+      required:
+        - name
+        - ip_address
+        - os_type
+        - environment
+      properties:
+        name:
+          type: string
+          pattern: '^[a-zA-Z0-9_\-\.]{3,100}$'
+          example: 'srv-db-prod-01'
+        ip_address:
+          type: string
+          example: '192.168.10.15'
+        hostname:
+          type: string
+          example: 'db01.corp.local'
+        os_type:
+          type: string
+          enum: [LINUX, WINDOWS, OTHER]
+        os_version:
+          type: string
+          example: 'Ubuntu 24.04 LTS'
+        environment:
+          type: string
+          enum: [PROD, STAGING, DEV, QA]
+        connection_port:
+          type: integer
+          minimum: 1
+          maximum: 65535
+          default: 22
+        technical_owner:
+          type: string
+          example: 'Equipo DBA'
+        description:
+          type: string
+          example: 'Nodo primario de base de datos PostgreSQL de facturación'
+        credential:
+          type: object
+          required:
+            - credential_type
+            - username
+            - secret_value
+          properties:
+            credential_type:
+              type: string
+              enum: [SSH_KEY, PASSWORD, AGENT_TOKEN]
+            username:
+              type: string
+              example: 'mon-user'
+            secret_value:
+              type: string
+              description: Clave privada PEM (para SSH) o contraseña en claro en tránsito TLS
+              writeOnly: true
+            passphrase:
+              type: string
+              description: Opcional si la clave SSH está cifrada
+              writeOnly: true
+        tags:
+          type: array
+          items:
+            type: object
+            required: [key, value]
+            properties:
+              key:
+                type: string
+              value:
+                type: string
+
+    UpdateServerRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        ip_address:
+          type: string
+        hostname:
+          type: string
+        environment:
+          type: string
+          enum: [PROD, STAGING, DEV, QA]
+        technical_owner:
+          type: string
+        description:
+          type: string
+        connection_port:
+          type: integer
+        new_credential:
+          type: object
+          description: Opcional para rotar credencial (sobrescribe la anterior)
+          properties:
+            credential_type:
+              type: string
+              enum: [SSH_KEY, PASSWORD, AGENT_TOKEN]
+            username:
+              type: string
+            secret_value:
+              type: string
+              writeOnly: true
+            passphrase:
+              type: string
+              writeOnly: true
+        tags:
+          type: array
+          items:
+            type: object
+            properties:
+              key:
+                type: string
+              value:
+                type: string
+
+    ServerDetailResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        ip_address:
+          type: string
+        hostname:
+          type: string
+        os_type:
+          type: string
+        os_version:
+          type: string
+        environment:
+          type: string
+        connection_port:
+          type: integer
+        technical_owner:
+          type: string
+        description:
+          type: string
+        lifecycle_state:
+          type: string
+          enum: [ACTIVE, MAINTENANCE, DISABLED, RETIRED]
+        health_status:
+          type: string
+          enum: [ONLINE, DEGRADED, UNREACHABLE, AUTH_FAILED, PENDING]
+        has_credential:
+          type: boolean
+          description: Indica si hay credencial configurada sin revelar secretos
+        credential_summary:
+          type: object
+          properties:
+            type:
+              type: string
+            username:
+              type: string
+            key_fingerprint:
+              type: string
+            last_rotated_at:
+              type: string
+              format: date-time
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        last_checked_at:
+          type: string
+          format: date-time
+        last_seen_at:
+          type: string
+          format: date-time
+        tags:
+          type: array
+          items:
+            type: object
+            properties:
+              key:
+                type: string
+              value:
+                type: string
+
+    ServerListResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ServerDetailResponse'
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+        pages:
+          type: integer
+
+    ConnectivityCheckResult:
+      type: object
+      properties:
+        server_id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [SUCCESS, TIMEOUT, REFUSED, AUTH_ERROR, ERROR]
+        duration_ms:
+          type: integer
+        diagnostic_summary:
+          type: string
+        checked_at:
+          type: string
+          format: date-time
+
+    ErrorResponse:
+      type: object
+      required:
+        - error_code
+        - message
+      properties:
+        error_code:
+          type: string
+          example: 'FORBIDDEN_ACTION'
+        message:
+          type: string
+          example: 'El rol OBSERVADOR no tiene privilegios para modificar servidores.'
+        details:
+          type: array
+          items:
+            type: string

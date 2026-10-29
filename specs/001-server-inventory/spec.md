@@ -202,3 +202,4 @@ Como **SUPERADMIN**, quiero retirar de forma permanente un servidor dado de baja
 - **A-003**: El sistema de gestión de usuarios y autenticación de la plataforma provee la identidad del usuario y su rol verificado (**SUPERADMIN** u **OBSERVADOR**) en cada solicitud entrante.
 - **A-004**: El idioma oficial de los textos de la interfaz, mensajes de error y etiquetas del inventario es español, con soporte para términos técnicos de industria estándar (SSH, WinRM, Hostname, FQDN, IP, Ping).
 - **A-005**: El soporte inicial cubre servidores Linux (distribuciones principales basadas en Debian, RHEL y Alpine) y Windows Server (versiones 2016 en adelante), extensible mediante adaptadores modulares a futuro.
+

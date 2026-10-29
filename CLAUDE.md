@@ -1,17 +1,19 @@
-# [NOMBRE_DEL_PROYECTO] — Guía para Claude
+# Plataforma Empresarial de Monitoreo — Guía para Claude
 
 > Este `CLAUDE.md` viene del **starter SDD**. Las secciones de **metodología** (manejo
 > de credenciales, Definición de Hecho REFORZADA, Modo Objetivo / Loop SDD) son el
-> núcleo evergreen: consérvalas. Lo de **stack** y **feature activa** se rellena por
-> proyecto. Edita lo que esté entre `[corchetes]`.
+> núcleo evergreen: consérvalas.
 
-## Active feature: [NNN-nombre-feature]
+## Active feature: 001-server-inventory
 
-Plan técnico: [specs/NNN-nombre-feature/plan.md](specs/NNN-nombre-feature/plan.md)
+Plan técnico: [specs/001-server-inventory/plan.md](specs/001-server-inventory/plan.md)
 (spec, research, data-model, contracts y quickstart en la misma carpeta).
 
-[Resumen de 1-2 párrafos de la feature en curso. Cuando termines una feature, mueve su
-resumen a una sección "## Feature previa: ..." debajo, como bitácora.]
+Módulo fundacional de gestión e inventario de servidores (Linux y Windows Server).
+Proporciona registro, consulta con filtrado multifactorial en tiempo real, gestión del ciclo
+de vida (`ACTIVE`, `MAINTENANCE`, `DISABLED`, `RETIRED`), verificación no intrusiva de conectividad
+(handshake SSH / WinRM), almacenamiento cifrado de credenciales en reposo con AES-256-GCM y control
+estricto de acceso basado en roles (**SUPERADMIN** vs. **OBSERVADOR**).
 
 <!--
 ## Feature previa: [NNN-...]
@@ -20,23 +22,18 @@ Plan técnico: [specs/NNN-.../plan.md](...). [Resumen de una línea de qué hizo
 
 ## Stack
 
-[Describe tu stack aquí. Plantilla de ejemplo, ajústala:]
-
-**Stack**: [Framework] + TypeScript estricto (`strict` + `noUncheckedIndexedAccess`) ·
-[UI] · [ORM] + [BD] self-hosted · [Auth] (multi-tenancy si aplica) · validación de
-todo input externo (p. ej. Zod) · almacenamiento de objetos S3-compatible vía interfaz
-estándar · [gestor de paquetes] · deploy en [plataforma] (healthcheck `/api/health`;
-migraciones por Pre-Deployment Command).
+**Stack**: Next.js 15+ (App Router) + TypeScript estricto (`strict: true` + `noUncheckedIndexedAccess: true`) ·
+Tailwind CSS + Componentes accesibles · Prisma ORM / Drizzle + PostgreSQL 16+ · Criptografía `node:crypto` (AES-256-GCM) ·
+Validación de entrada Zod · Sondeos de red `ssh2` (modo solo lectura) · pnpm · deploy en contenedor Docker / Coolify.
 
 **Reglas que vienen de la constitución** (gobierna todo — ver
 [.specify/memory/constitution.md](.specify/memory/constitution.md)):
-- Secretos cifrados en reposo; nunca al cliente ni a logs.
-- Si hay multi-tenancy: `organization_id` indexado en toda tabla de dominio; ninguna
-  query sin scope de tenant.
-- Webhooks/eventos externos idempotentes: verificar firma + dedup por id único.
-- Core self-hosted (auth + BD); almacenamiento de objetos solo vía interfaz S3 estándar.
-- "Hecho" = typecheck + lint + build (+ tests donde apliquen); lo no verificable se
-  marca pendiente de verificación humana.
+- Secretos cifrados en reposo (AES-256-GCM); nunca al cliente, logs o respuestas de API (Principio III).
+- Permisos verificados en backend en cada endpoint; rol OBSERVADOR solo lectura (Principio IV).
+- Sondeos exclusivamente de solo lectura, sin ejecución remota de comandos de modificación (Principio V).
+- Trazabilidad y auditoría append-only para toda acción administrativa (Principio VI).
+- Estados de salud explícitos (`ONLINE`, `DEGRADED`, `UNREACHABLE`, `AUTH_FAILED`) sin asumir normalidad ante datos ausentes (Principio VIII).
+- "Hecho" = typecheck + lint + build + pruebas de resiliencia y seguridad (Principio IX y DoD Reforzada).
 
 ## Arquitectura de tres agentes
 
