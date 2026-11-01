@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { RefreshCw, AlertTriangle, Server, Search, Filter } from "lucide-react";
 import { AlertTable } from "@/components/alerts/AlertTable";
 
@@ -21,6 +22,7 @@ export interface AlertListItem {
 }
 
 export default function AlertsPage() {
+  const router = useRouter();
   const [alerts, setAlerts] = useState<AlertListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -30,9 +32,6 @@ export default function AlertsPage() {
     setError(null);
     try {
       const res = await fetch("/api/v1/alerts?limit=100", {
-        headers: {
-          Authorization: "Bearer TOKEN_SUPERADMIN",
-        },
       });
       if (!res.ok) {
         throw new Error("No se pudo cargar las alertas");
@@ -50,10 +49,7 @@ export default function AlertsPage() {
     try {
       const res = await fetch(`/api/v1/alerts/${id}`, {
         method: "PATCH",
-        headers: {
-          Authorization: "Bearer TOKEN_SUPERADMIN",
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "acknowledge" }),
       });
       if (!res.ok) throw new Error("Error al reconocer alerta");
@@ -67,10 +63,7 @@ export default function AlertsPage() {
     try {
       const res = await fetch(`/api/v1/alerts/${id}`, {
         method: "PATCH",
-        headers: {
-          Authorization: "Bearer TOKEN_SUPERADMIN",
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "resolve" }),
       });
       if (!res.ok) throw new Error("Error al resolver alerta");
@@ -123,6 +116,13 @@ export default function AlertsPage() {
         canMutate={true}
         onAcknowledge={handleAcknowledge}
         onResolve={handleResolve}
+        onCreateIncident={(alert) => {
+          const params = new URLSearchParams({
+            alert_id: alert.id,
+            ...(alert.serverId ? { server_id: alert.serverId } : {}),
+          });
+          router.push(`/incidents/new?${params.toString()}`);
+        }}
       />
     </div>
   );

@@ -38,8 +38,7 @@ export function DecommissionDialog({
         method: "DELETE",
         headers: {
           "Content-Type": "application/json",
-          Authorization: "Bearer TOKEN_SUPERADMIN",
-        },
+          },
         body: JSON.stringify({
           confirmationName: confirmationInput,
         }),

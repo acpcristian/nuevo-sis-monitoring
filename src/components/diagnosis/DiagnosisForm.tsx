@@ -57,8 +57,7 @@ export function DiagnosisForm({
   const fetchAvailableEvents = async () => {
     try {
       const res = await fetch("/api/v1/logs?limit=200", {
-        headers: { Authorization: "Bearer TOKEN_SUPERADMIN" },
-      });
+        });
       if (res.ok) {
         const data = await res.json();
         setAvailableEvents(data.items || []);
@@ -98,7 +97,6 @@ export function DiagnosisForm({
       const res = await fetch("/api/v1/diagnoses", {
         method: "POST",
         headers: {
-          Authorization: "Bearer TOKEN_SUPERADMIN",
           "Content-Type": "application/json",
         },
         body: JSON.stringify({

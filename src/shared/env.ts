@@ -9,6 +9,9 @@ const envSchema = z.object({
     .regex(/^[0-9a-fA-F]+$/, "ENCRYPTION_KEY debe contener únicamente caracteres hexadecimales")
     .default("0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"),
   PORT: z.coerce.number().default(3000),
+  AUTH_SECRET: z.string().min(16).optional(),
+  SUPERADMIN_USER: z.string().min(3).optional(),
+  SUPERADMIN_PASSWORD: z.string().min(8).optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;

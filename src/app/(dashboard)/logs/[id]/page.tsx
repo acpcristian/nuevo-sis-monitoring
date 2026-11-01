@@ -43,7 +43,6 @@ export default function LogEventPage({ params }: { params: Promise<{ id: string 
   const fetchEvent = async () => {
     try {
       const res = await fetch(`/api/v1/logs/${logId}`, {
-        headers: { Authorization: "Bearer TOKEN_SUPERADMIN" },
       });
       if (!res.ok) {
         throw new Error("No se pudo cargar el evento de log");

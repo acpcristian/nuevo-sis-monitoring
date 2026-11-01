@@ -73,7 +73,6 @@ export default function ServerDetailPage({ params }: { params: Promise<{ id: str
   const fetchServer = async () => {
     try {
       const res = await fetch(`/api/v1/servers/${serverId}`, {
-        headers: { Authorization: "Bearer TOKEN_SUPERADMIN" },
       });
       if (!res.ok) {
         throw new Error("No se pudo cargar la información del servidor.");
@@ -97,7 +96,6 @@ export default function ServerDetailPage({ params }: { params: Promise<{ id: str
     try {
       const res = await fetch(`/api/v1/servers/${serverId}/test-connection`, {
         method: "POST",
-        headers: { Authorization: "Bearer TOKEN_SUPERADMIN" },
       });
       const data = await res.json();
       setProbeMessage(`Prueba completada: ${data.status} en ${data.durationMs} ms. ${data.diagnosticSummary || ""}`);

@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { ForbiddenError, UnauthorizedError } from "@/shared/errors/domain-errors";
 import { UserRole } from "@/core/domain/server.types";
 import { AuditService } from "@/core/services/audit.service";
+import { verifySessionToken, SESSION_COOKIE } from "@/infrastructure/security/session";
 
 export interface AuthenticatedUser {
   id: string;
@@ -11,15 +12,23 @@ export interface AuthenticatedUser {
 
 export class RbacGuard {
   /**
-   * Extrae el usuario autenticado desde los encabezados HTTP de la petición.
-   * Soporta tanto simulación de prueba en headers como tokens Bearer.
+   * Extrae el usuario autenticado de la petición, en este orden de prioridad:
+   * 1. Cookie de sesión firmada (HMAC-SHA256) — flujo de la UI autenticada.
+   * 2. Headers x-user-role/x-user-id o Bearer — fallback para pruebas e
+   *    integraciones de agentes; se retirará cuando existan API keys reales.
    */
   public static extractUser(request: NextRequest): AuthenticatedUser {
     // 1. Detección de IP del cliente
     const forwardedFor = request.headers.get("x-forwarded-for");
     const ipAddress = forwardedFor ? forwardedFor.split(",")[0]?.trim() : "127.0.0.1";
 
-    // 2. Extracción de token o encabezados de autorización
+    // 2. Prioridad: sesión firmada por cookie HttpOnly
+    const session = verifySessionToken(request.cookies.get(SESSION_COOKIE)?.value);
+    if (session) {
+      return { id: session.uid, role: session.role, ipAddress };
+    }
+
+    // 3. Fallback (transición): headers de simulación/token
     const authHeader = request.headers.get("authorization");
     const roleHeader = request.headers.get("x-user-role") as UserRole | null;
     const userIdHeader = request.headers.get("x-user-id");
@@ -45,7 +54,7 @@ export class RbacGuard {
     }
 
     // Por defecto, si no hay autenticación válida se rechaza
-    throw new UnauthorizedError("Credenciales de autenticación ausentes o inválidas.");
+    throw new UnauthorizedError("Sesión no autenticada o credenciales inválidas.");
   }
 
   /**

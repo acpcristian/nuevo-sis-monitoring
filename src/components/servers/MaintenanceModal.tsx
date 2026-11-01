@@ -39,8 +39,7 @@ export function MaintenanceModal({
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
-          Authorization: "Bearer TOKEN_SUPERADMIN",
-        },
+          },
         body: JSON.stringify({
           newState: targetState,
           reason: reason || undefined,

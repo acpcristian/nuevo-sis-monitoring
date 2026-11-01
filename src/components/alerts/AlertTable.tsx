@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { AlertTriangle, CheckCircle, Clock, Server, XCircle } from "lucide-react";
+import { AlertTriangle, CheckCircle, Clock, Server, XCircle, Siren, Link2 } from "lucide-react";
 
 export interface AlertListItem {
   id: string;
@@ -26,6 +26,7 @@ interface AlertTableProps {
   canMutate?: boolean;
   onAcknowledge?: (id: string) => void;
   onResolve?: (id: string) => void;
+  onCreateIncident?: (alert: AlertListItem) => void;
 }
 
 const STATUS_ICONS: Record<string, React.ReactNode> = {
@@ -54,6 +55,7 @@ export function AlertTable({
   canMutate = false,
   onAcknowledge,
   onResolve,
+  onCreateIncident,
 }: AlertTableProps) {
   const [selectedStatus, setSelectedStatus] = React.useState<string>("ALL");
   const [searchTerm, setSearchTerm] = React.useState("");
@@ -186,12 +188,24 @@ export function AlertTable({
                       </button>
                     )}
                     {canMutate && (alert.status === "ACTIVE" || alert.status === "ACKNOWLEDGED") && (
-                      <button
-                        onClick={() => handleResolve(alert.id)}
-                        className="text-xs font-medium text-emerald-700 hover:text-emerald-900 transition px-2 py-1 bg-emerald-50 hover:bg-emerald-100 rounded"
-                      >
-                        Resolver
-                      </button>
+                      <>
+                        <button
+                          onClick={() => handleResolve(alert.id)}
+                          className="text-xs font-medium text-emerald-700 hover:text-emerald-900 transition px-2 py-1 bg-emerald-50 hover:bg-emerald-100 rounded"
+                        >
+                          Resolver
+                        </button>
+                        {onCreateIncident && (
+                          <button
+                            onClick={() => onCreateIncident(alert)}
+                            title="Crear incidente desde esta alerta"
+                            className="text-xs font-medium text-red-700 hover:text-red-900 transition px-2 py-1 bg-red-50 hover:bg-red-100 rounded inline-flex items-center gap-1"
+                          >
+                            <Siren className="w-3 h-3" />
+                            Incidente
+                          </button>
+                        )}
+                      </>
                     )}
                     {alert.status === "RESOLVED" && (
                       <span className="text-xs text-slate-400">Resuelta</span>

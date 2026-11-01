@@ -27,9 +27,6 @@ export default function LogsPage() {
     setError(null);
     try {
       const res = await fetch("/api/v1/logs?limit=100", {
-        headers: {
-          Authorization: "Bearer TOKEN_SUPERADMIN",
-        },
       });
       if (!res.ok) {
         throw new Error("No se pudo cargar los eventos de log");

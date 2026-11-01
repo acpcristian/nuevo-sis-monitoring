@@ -101,8 +101,7 @@ export function ServerForm({ onSuccess, onCancel }: ServerFormProps) {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: "Bearer TOKEN_SUPERADMIN", // Simulación para SUPERADMIN
-        },
+          },
         body: JSON.stringify(payload),
       });
 

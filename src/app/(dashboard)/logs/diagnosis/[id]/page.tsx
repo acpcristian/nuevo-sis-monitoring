@@ -58,7 +58,6 @@ export default function DiagnosisDetailPage({ params }: { params: Promise<{ id: 
   const fetchDiagnosis = async () => {
     try {
       const res = await fetch(`/api/v1/diagnoses/${diagnosisId}`, {
-        headers: { Authorization: "Bearer TOKEN_SUPERADMIN" },
       });
       if (!res.ok) {
         if (res.status === 404) throw new Error("NOT_FOUND");
@@ -85,7 +84,6 @@ export default function DiagnosisDetailPage({ params }: { params: Promise<{ id: 
     try {
       const res = await fetch(`/api/v1/diagnoses/${diagnosisId}`, {
         method: "DELETE",
-        headers: { Authorization: "Bearer TOKEN_SUPERADMIN" },
       });
       if (!res.ok) throw new Error("Error al eliminar diagnóstico");
       router.push("/logs");
