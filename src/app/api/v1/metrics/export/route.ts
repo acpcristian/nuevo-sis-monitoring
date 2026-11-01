@@ -53,7 +53,7 @@ export async function GET(request: NextRequest) {
       const items = await prisma.server.findMany({
         select: {
           id: true, name: true, ipAddress: true, hostname: true, osType: true, osVersion: true,
-          environment: true, status: true, healthStatus: true, lastCheckedAt: true, createdAt: true,
+          environment: true, lifecycleState: true, healthStatus: true, lastCheckedAt: true, createdAt: true,
         },
         orderBy: { name: "asc" },
         take: 1000,

@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
       channelStatus,
     ] = await Promise.all([
       prisma.server.groupBy({ by: ["healthStatus"], _count: { _all: true } }),
-      prisma.server.groupBy({ by: ["environment"], _count: { _all: true }, where: { status: { not: "RETIRED" } } }),
+      prisma.server.groupBy({ by: ["environment"], _count: { _all: true }, where: { lifecycleState: { not: "RETIRED" } } }),
       prisma.incident.groupBy({ by: ["status"], _count: { _all: true } }),
       prisma.incident.groupBy({ by: ["priority"], _count: { _all: true }, where: { status: { notIn: ["RESOLVED", "CLOSED"] } } }),
       prisma.logEvent.groupBy({ by: ["severity"], _count: { _all: true }, where: { eventTimestamp: { gte: h24 } } }),
@@ -70,36 +70,36 @@ export async function GET(request: NextRequest) {
       const diffH = Math.floor((now.getTime() - ev.eventTimestamp.getTime()) / 3600000);
       const idx = 23 - diffH;
       if (idx >= 0 && idx < 24) {
-        hourly[idx] += 1;
+        hourly[idx] = (hourly[idx] ?? 0) + 1;
       }
     }
 
     return NextResponse.json({
       generatedAt: now.toISOString(),
       servers: {
-        byHealthStatus: healthByStatus.map((g) => ({ label: g.healthStatus, count: g._count._all })),
-        byEnvironment: envByType.map((g) => ({ label: g.environment, count: g._count._all })),
+        byHealthStatus: healthByStatus.map((g) => ({ label: g.healthStatus, count: (g._count as { _all: number })._all })),
+        byEnvironment: envByType.map((g) => ({ label: g.environment, count: (g._count as { _all: number })._all })),
       },
       incidents: {
-        byStatus: incidentsByStatus.map((g) => ({ label: g.status, count: g._count._all })),
-        openByPriority: incidentsByPriority.map((g) => ({ label: g.priority, count: g._count._all })),
+        byStatus: incidentsByStatus.map((g) => ({ label: g.status, count: (g._count as { _all: number })._all })),
+        openByPriority: incidentsByPriority.map((g) => ({ label: g.priority, count: (g._count as { _all: number })._all })),
         openSlaBreached,
         slaMetPct7d: slaTotal7d > 0 ? Math.round((slaMet7d / slaTotal7d) * 100) : null,
         mttrMedianMinutes: mttrMedian,
       },
       logs: {
         ingest24h,
-        bySeverity24h: eventsBySeverity24h.map((g) => ({ label: g.severity, count: g._count._all })),
+        bySeverity24h: eventsBySeverity24h.map((g) => ({ label: g.severity, count: (g._count as { _all: number })._all })),
         hourly24h: hourly,
       },
       alerts: {
         topPatterns: topAlertPatterns.map((g) => ({
           pattern: g.patternType,
-          alerts: g._count._all,
-          events: g._sum.eventCount ?? 0,
+          alerts: (g._count as { _all: number })._all,
+          events: (g._sum as { eventCount: number | null }).eventCount ?? 0,
         })),
       },
-      channels: channelStatus.map((g) => ({ label: g.status, count: g._count._all })),
+      channels: channelStatus.map((g) => ({ label: g.status, count: (g._count as { _all: number })._all })),
     });
   } catch (error: unknown) {
     if (error instanceof DomainError) {

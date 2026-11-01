@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/infrastructure/db/prisma";
 import { RbacGuard } from "@/infrastructure/security/rbac-guard";
 import { DomainError } from "@/shared/errors/domain-errors";
+import { NotificationService } from "@/core/services/notification.service";
 
 export async function POST(request: NextRequest) {
   try {
@@ -51,7 +52,7 @@ export async function GET(request: NextRequest) {
     const take = Math.min(100, Math.max(1, parseInt(searchParams.get("limit") ?? "50")));
     const status = searchParams.get("status");
 
-    const where =
+    const where: { status?: "SENT" | "FAILED" | "RETRYING" } =
       status === "SENT" || status === "FAILED" || status === "RETRYING" ? { status } : {};
     const items = await prisma.notificationDelivery.findMany({
       where,

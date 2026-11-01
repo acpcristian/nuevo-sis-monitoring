@@ -1,4 +1,5 @@
 import { prisma } from "@/infrastructure/db/prisma";
+import { Prisma } from "@prisma/client";
 import { NotFoundError, ConflictError } from "@/shared/errors/domain-errors";
 import { AuditService } from "@/core/services/audit.service";
 import { NotificationService } from "@/core/services/notification.service";
@@ -72,8 +73,8 @@ export class PlaybookService {
         name: input.name,
         description: input.description ?? null,
         status: "DISABLED", // nace deshabilitado: activación consciente (human-in-the-loop)
-        trigger: (input.trigger ?? { type: "MANUAL" }) as Record<string, unknown>,
-        steps: input.steps as Record<string, unknown>[],
+        trigger: (input.trigger ?? { type: "MANUAL" }) as unknown as Prisma.InputJsonValue,
+        steps: input.steps as unknown as Prisma.InputJsonValue,
         createdBy: userId,
       },
     });
@@ -150,7 +151,7 @@ export class PlaybookService {
     const execution = await prisma.playbookExecution.create({
       data: {
         playbookId: id,
-        trigger: (opts?.context ?? {}) as Record<string, unknown>,
+        trigger: (opts?.context ?? {}) as unknown as Prisma.InputJsonValue,
         status: "RUNNING",
         automatic: opts?.automatic ?? false,
         stepsLog: [],
@@ -162,7 +163,7 @@ export class PlaybookService {
     let failed = false;
 
     for (let i = 0; i < steps.length; i++) {
-      const step = steps[i];
+      const step = steps[i]!;
       const start = Date.now();
       try {
         const detail = await this.runStep(step, i + 1);
@@ -195,7 +196,7 @@ export class PlaybookService {
       where: { id: execution.id },
       data: {
         status: failed ? "FAILED" : "SUCCESS",
-        stepsLog: logs as unknown[],
+        stepsLog: logs as unknown as Prisma.InputJsonValue,
         finishedAt,
         error: failed ? `Fallo en el paso ${logs.length}` : null,
       },
@@ -245,7 +246,7 @@ export class PlaybookService {
         }
         return {
           status: "OK" as const,
-          detail: `Servidor ${server.name}: estado operativo ${server.status}, salud ${server.healthStatus}, latencia actual desconocida (solo verificación pasiva).`,
+          detail: `Servidor ${server.name}: estado operativo ${server.lifecycleState}, salud ${server.healthStatus}, latencia actual desconocida (solo verificación pasiva).`,
         };
       }
       return { status: "OK" as const, detail: "Verificación pasiva sin servidor objetivo (no-op). Agrega params.serverId." };
