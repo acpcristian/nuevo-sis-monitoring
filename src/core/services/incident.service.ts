@@ -309,7 +309,7 @@ export class IncidentService {
     }
 
     // Luego cerrar
-    const incident = await prisma.incident.findUnique({
+    const incidentNow = await prisma.incident.findUnique({
       where: { id },
     });
 
