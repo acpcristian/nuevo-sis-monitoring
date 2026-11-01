@@ -1,0 +1,9 @@
+- [002-log-analysis-final-summary](002-log-analysis-final-summary.md) — Final summary for 002-log-analysis spec development
+- [002-log-analysis-dev-update](002-log-analysis-dev-update.md) — Development update for 002-log-analysis spec
+- [incident-service-completed](incident-service-completed.md) — Services completadas para gestión de incidentes: incident.service.ts con create, get, list, transitionState y closeIncident
+- [notification-service-completed](notification-service-completed.md) — Services completadas para notificaciones: notification.service.ts con sendNotification, sendToChannel y todos los tipos de canal (email, slack, webhook, pagerduty)
+- [spec-003-incident-management](spec-003-incident-management.md) — Spec 003 completado con spec.md, plan.md y constitución checks
+- [spec-004-notificaciones](spec-004-notificaciones.md) — Spec 004 completado con spec.md y plan.md creado
+- [spec-005-metricas-dashboards](spec-005-metricas-dashboards.md) — Spec 005 completado con spec.md y plan.md creado
+- [spec-006-automatizacion](spec-006-automatizacion.md) — Spec 006 completado con spec.md y plan.md creado
+- [tasks-updated-002](tasks-updated-002.md) — Tasks 002 actualizadas reflejando implementación real (90/90 tests passing)

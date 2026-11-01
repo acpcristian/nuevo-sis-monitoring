@@ -1,0 +1,285 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum OsType {
+  LINUX
+  WINDOWS
+  OTHER
+}
+
+enum Environment {
+  PROD
+  STAGING
+  DEV
+  QA
+}
+
+enum LifecycleState {
+  ACTIVE
+  MAINTENANCE
+  DISABLED
+  RETIRED
+}
+
+enum HealthStatus {
+  ONLINE
+  DEGRADED
+  UNREACHABLE
+  AUTH_FAILED
+  PENDING
+}
+
+enum CredentialType {
+  SSH_KEY
+  PASSWORD
+  AGENT_TOKEN
+}
+
+enum CheckResultStatus {
+  SUCCESS
+  TIMEOUT
+  REFUSED
+  AUTH_ERROR
+  ERROR
+}
+
+model Server {
+  id               String          @id @default(uuid())
+  name             String          @unique
+  ipAddress        String          @map("ip_address")
+  hostname         String?
+  osType           OsType          @default(LINUX) @map("os_type")
+  osVersion        String?         @map("os_version")
+  environment      Environment     @default(PROD)
+  connectionPort   Int             @default(22) @map("connection_port")
+  technicalOwner   String?         @map("technical_owner")
+  description      String?
+  lifecycleState   LifecycleState  @default(ACTIVE) @map("lifecycle_state")
+  healthStatus     HealthStatus    @default(PENDING) @map("health_status")
+  createdAt        DateTime        @default(now()) @map("created_at")
+  updatedAt        DateTime        @updatedAt @map("updated_at")
+  lastCheckedAt    DateTime?       @map("last_checked_at")
+  lastSeenAt       DateTime?       @map("last_seen_at")
+
+  credential       ServerCredential?
+  checks           ConnectivityCheck[]
+  tags             ServerTag[]
+  auditLogs        InventoryAuditLog[]
+  logEvents        LogEvent[]
+  dataFreshness    DataFreshnessState?
+  logAlerts        LogAlert[]
+
+  @@index([environment, healthStatus, lifecycleState])
+  @@index([ipAddress])
+  @@map("servers")
+}
+
+model ServerCredential {
+  id               String         @id @default(uuid())
+  serverId         String         @unique @map("server_id")
+  credentialType   CredentialType @default(SSH_KEY) @map("credential_type")
+  username         String
+  encryptedPayload String         @map("encrypted_payload")
+  iv               String
+  authTag          String         @map("auth_tag")
+  keyFingerprint   String?        @map("key_fingerprint")
+  createdAt        DateTime       @default(now()) @map("created_at")
+  rotatedAt        DateTime       @default(now()) @map("rotated_at")
+
+  server           Server         @relation(fields: [serverId], references: [id], onDelete: Cascade)
+
+  @@map("server_credentials")
+}
+
+model ConnectivityCheck {
+  id                String            @id @default(uuid())
+  serverId          String            @map("server_id")
+  eventTimestamp    DateTime          @default(now()) @map("event_timestamp")
+  durationMs        Int               @map("duration_ms")
+  resultStatus      CheckResultStatus @map("result_status")
+  diagnosticSummary String?           @map("diagnostic_summary")
+
+  server            Server            @relation(fields: [serverId], references: [id], onDelete: Cascade)
+
+  @@index([serverId, eventTimestamp(sort: Desc)])
+  @@map("connectivity_checks")
+}
+
+model Tag {
+  id      String      @id @default(uuid())
+  key     String
+  value   String
+  servers ServerTag[]
+
+  @@unique([key, value])
+  @@map("tags")
+}
+
+model ServerTag {
+  serverId String @map("server_id")
+  tagId    String @map("tag_id")
+
+  server   Server @relation(fields: [serverId], references: [id], onDelete: Cascade)
+  tag      Tag    @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([serverId, tagId])
+  @@map("server_tags")
+}
+
+model InventoryAuditLog {
+  id             String   @id @default(uuid())
+  timestamp      DateTime @default(now())
+  userId         String   @map("user_id")
+  action         String
+  targetServerId String?  @map("target_server_id")
+  detailsDiff    Json     @map("details_diff")
+  ipAddress      String?  @map("ip_address")
+
+  server         Server?  @relation(fields: [targetServerId], references: [id], onDelete: SetNull)
+
+  @@index([timestamp(sort: Desc)])
+  @@index([targetServerId])
+  @@map("inventory_audit_logs")
+}
+
+enum LogCategory {
+  SYS_KERNEL
+  AUTH_ACCESS
+  SSH_NETWORK
+  SYSTEM_SERVICE
+  WEB_APP
+  DATABASE
+  STORAGE_HW
+  BACKUP_TASK
+  SECURITY_AUDIT
+  AGENT_ERROR
+}
+
+enum LogSeverity {
+  INFO
+  WARN
+  ERROR
+  CRITICAL
+}
+
+enum FreshnessState {
+  FRESH
+  STALE
+  AGENT_DISCONNECTED
+  UNREACHABLE
+}
+
+enum DiagnosisStatus {
+  DRAFT
+  FINAL
+  SUPERSEDED
+}
+
+enum ConfidenceLevel {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum AlertStatus {
+  ACTIVE
+  ACKNOWLEDGED
+  RESOLVED
+}
+
+model LogCategoryModel {
+  id        String      @id @default(uuid())
+  code      String      @unique
+  name      String
+  description String?
+  priority  Int         @default(5)
+  events    LogEvent[]
+
+  @@map("log_categories")
+}
+
+model LogEvent {
+  id                String         @id @default(uuid())
+  serverId          String?        @map("server_id")
+  categoryId        String         @map("category_id")
+  category          LogCategoryModel @relation(fields: [categoryId], references: [id])
+  eventTimestamp    DateTime       @map("event_timestamp")
+  ingestionTimestamp DateTime      @default(now()) @map("ingestion_timestamp")
+  processedTimestamp DateTime?     @map("processed_timestamp")
+  eventType         String?        @map("event_type")
+  severity          LogSeverity    @map("severity")
+  sanitizedMessage  String         @map("sanitized_message")
+  rawLog            String         @map("raw_log")
+  metadata          Json?          @map("metadata")
+  isUntrusted       Boolean        @default(true) @map("is_untrusted")
+
+  server            Server?        @relation(fields: [serverId], references: [id], onDelete: SetNull)
+  diagnoses         IncidentDiagnosis[]
+  alerts            LogAlert[]
+
+  @@index([serverId, eventTimestamp(sort: Desc)])
+  @@index([categoryId, eventTimestamp(sort: Desc)])
+  @@index([ingestionTimestamp(sort: Desc)])
+  @@map("log_events")
+}
+
+model IncidentDiagnosis {
+  id                 String   @id @default(uuid())
+  generatedBy        String   @map("generated_by")
+  generatedAt        DateTime @default(now()) @map("generated_at")
+  observedFacts      String   @map("observed_facts")
+  probableCause      String   @map("probable_cause")
+  evidenceSupport    Json     @map("evidence_support")
+  alternativeDiagnoses String? @map("alternative_diagnoses")
+  impactPotential    String?  @map("impact_potential")
+  verificationSteps  String?  @map("verification_steps")
+  remediationRecommendations String? @map("remediation_recommendations")
+  confidenceLevel    ConfidenceLevel @map("confidence_level")
+  status             DiagnosisStatus @default(DRAFT) @map("status")
+
+  events             LogEvent[]
+
+  @@index([generatedAt(sort: Desc)])
+  @@index([status])
+  @@map("incident_diagnoses")
+}
+
+model DataFreshnessState {
+  id               String         @id @default(uuid())
+  serverId         String         @unique @map("server_id")
+  freshnessState   FreshnessState @map("freshness_state")
+  lastTelemetryAt  DateTime?      @map("last_telemetry_at")
+  updatedAt        DateTime       @updatedAt @map("updated_at")
+
+  server           Server         @relation(fields: [serverId], references: [id], onDelete: Cascade)
+
+  @@map("data_freshness_states")
+}
+
+model LogAlert {
+  id               String      @id @default(uuid())
+  serverId         String?     @map("server_id")
+  category         LogCategory? @map("category")
+  patternType      String      @map("pattern_type")
+  eventCount       Int         @map("event_count")
+  windowStart      DateTime    @map("window_start")
+  windowEnd        DateTime    @map("window_end")
+  severity         LogSeverity @map("severity")
+  status           AlertStatus @default(ACTIVE) @map("status")
+  acknowledgedBy   String?     @map("acknowledged_by")
+  acknowledgedAt   DateTime?   @map("acknowledged_at")
+
+  server           Server?     @relation(fields: [serverId], references: [id], onDelete: SetNull)
+  events           LogEvent[]
+
+  @@index([serverId, status])
+  @@index([windowStart, windowEnd])
+  @@map("log_alerts")
+}
+

@@ -4,21 +4,19 @@
 > de credenciales, Definición de Hecho REFORZADA, Modo Objetivo / Loop SDD) son el
 > núcleo evergreen: consérvalas.
 
-## Active feature: 001-server-inventory
+## Active feature: 002-log-analysis
 
-Plan técnico: [specs/001-server-inventory/plan.md](specs/001-server-inventory/plan.md)
+Plan técnico: [specs/002-log-analysis/plan.md](specs/002-log-analysis/plan.md)
 (spec, research, data-model, contracts y quickstart en la misma carpeta).
 
-Módulo fundacional de gestión e inventario de servidores (Linux y Windows Server).
-Proporciona registro, consulta con filtrado multifactorial en tiempo real, gestión del ciclo
-de vida (`ACTIVE`, `MAINTENANCE`, `DISABLED`, `RETIRED`), verificación no intrusiva de conectividad
-(handshake SSH / WinRM), almacenamiento cifrado de credenciales en reposo con AES-256-GCM y control
-estricto de acceso basado en roles (**SUPERADMIN** vs. **OBSERVADOR**).
+Módulo de análisis de logs y diagnóstico estructurado: ingesta y clasificación de registros
+en 10 categorías prioritarias, filtrado multifactorial, diagnósticos asistidos con hechos
+observados y evidencias de soporte, deduplicación de alertas y estados de frescura de datos.
+Cumple con el Principio VII (Análisis de Logs Responsable) y los Principios II, III, IV, VI,
+VIII, XII y XIII de la Constitución.
 
-<!--
-## Feature previa: [NNN-...]
-Plan técnico: [specs/NNN-.../plan.md](...). [Resumen de una línea de qué hizo.]
--->
+## Feature previa: 001-server-inventory
+Plan técnico: [specs/001-server-inventory/plan.md](specs/001-server-inventory/plan.md). Módulo fundacional de gestión e inventario de servidores (Linux y Windows Server) — completado.
 
 ## Stack
 

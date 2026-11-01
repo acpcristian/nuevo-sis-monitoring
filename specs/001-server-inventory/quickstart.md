@@ -126,3 +126,4 @@ Este documento describe cómo inicializar, configurar y verificar de extremo a e
    - El servidor pasa a `RETIRED`.
    - En base de datos, el registro en `server_credentials` es eliminado físicamente (`PURGED`).
    - El historial en `inventory_audit_logs` y `connectivity_checks` se conserva para auditoría forense.
+

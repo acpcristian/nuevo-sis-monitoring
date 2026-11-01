@@ -17,10 +17,10 @@
 
 **Purpose**: Inicialización del proyecto, dependencias del stack tecnológico y configuración de herramientas base.
 
-- [ ] T001 Inicializar proyecto TypeScript y Next.js 15+ con configuración estricta (`strict: true`, `noUncheckedIndexedAccess: true`) en `package.json` y `tsconfig.json`
-- [ ] T002 [P] Instalar dependencias de producción y desarrollo (`prisma`, `@prisma/client`, `zod`, `ssh2`, `@types/ssh2`, `lucide-react`, `vitest`, `@playwright/test`) en `package.json`
-- [ ] T003 [P] Configurar validación de variables de entorno críticas (`ENCRYPTION_KEY`, `DATABASE_URL`) mediante Zod en `src/shared/env.ts`
-- [ ] T004 [P] Configurar ejecutores de pruebas Vitest y Playwright en `vitest.config.ts` y `playwright.config.ts`
+- [x] T001 Inicializar proyecto TypeScript y Next.js 15+ con configuración estricta (`strict: true`, `noUncheckedIndexedAccess: true`) en `package.json` y `tsconfig.json`
+- [x] T002 [P] Instalar dependencias de producción y desarrollo (`prisma`, `@prisma/client`, `zod`, `ssh2`, `@types/ssh2`, `lucide-react`, `vitest`, `@playwright/test`) en `package.json`
+- [x] T003 [P] Configurar validación de variables de entorno críticas (`ENCRYPTION_KEY`, `DATABASE_URL`) mediante Zod en `src/shared/env.ts`
+- [x] T004 [P] Configurar ejecutores de pruebas Vitest y Playwright en `vitest.config.ts` y `playwright.config.ts`
 
 ---
 
@@ -30,15 +30,15 @@
 
 **⚠️ CRITICAL**: El trabajo en las historias de usuario no puede comenzar hasta completar esta fase.
 
-- [ ] T005 Definir esquema relacional de PostgreSQL con modelos `Server`, `ServerCredential`, `ConnectivityCheck`, `Tag`, `ServerTag` e `InventoryAuditLog` en `src/infrastructure/db/schema.prisma`
-- [ ] T006 Implementar cliente singleton de persistencia y gestión de conexiones en `src/infrastructure/db/prisma.ts`
-- [ ] T007 Implementar servicio criptográfico de grado empresarial `SecretVault` con AES-256-GCM, IV de 12 bytes aleatorio y auth tag en `src/infrastructure/crypto/secret-vault.ts`
-- [ ] T008 [P] Implementar pruebas unitarias para `SecretVault` (cifrado, descifrado, detección de manipulación y cálculo de fingerprint) en `tests/unit/crypto/secret-vault.test.ts`
-- [ ] T009 Definir tipos de dominio, enumeraciones (`os_type`, `environment`, `lifecycle_state`, `health_status`) y jerarquía de errores en `src/core/domain/server.types.ts` y `src/shared/errors/domain-errors.ts`
-- [ ] T010 Implementar servicio de auditoría inmutable `AuditService` (registro append-only de usuario, acción, marcas temporales y diff sin secretos) en `src/core/services/audit.service.ts`
-- [ ] T011 [P] Implementar guard de autorización backend y extracción de sesión (`SUPERADMIN` vs `OBSERVADOR`) en `src/infrastructure/security/rbac-guard.ts`
-- [ ] T012 [P] Implementar adaptador de sondeo no intrusivo SSH para Linux (handshake y banner en solo lectura, timeout de 5s, sin comandos modificadores) en `src/infrastructure/network/ssh-probe.ts`
-- [ ] T013 [P] Implementar adaptador de sondeo TCP/WinRM HTTPS para Windows Server (comprobación de socket y latencia, timeout de 5s) en `src/infrastructure/network/winrm-probe.ts`
+- [x] T005 Definir esquema relacional de PostgreSQL con modelos `Server`, `ServerCredential`, `ConnectivityCheck`, `Tag`, `ServerTag` e `InventoryAuditLog` en `src/infrastructure/db/schema.prisma`
+- [x] T006 Implementar cliente singleton de persistencia y gestión de conexiones en `src/infrastructure/db/prisma.ts`
+- [x] T007 Implementar servicio criptográfico de grado empresarial `SecretVault` con AES-256-GCM, IV de 12 bytes aleatorio y auth tag en `src/infrastructure/crypto/secret-vault.ts`
+- [x] T008 [P] Implementar pruebas unitarias para `SecretVault` (cifrado, descifrado, detección de manipulación y cálculo de fingerprint) en `tests/unit/crypto/secret-vault.test.ts`
+- [x] T009 Definir tipos de dominio, enumeraciones (`os_type`, `environment`, `lifecycle_state`, `health_status`) y jerarquía de errores en `src/core/domain/server.types.ts` y `src/shared/errors/domain-errors.ts`
+- [x] T010 Implementar servicio de auditoría inmutable `AuditService` (registro append-only de usuario, acción, marcas temporales y diff sin secretos) en `src/core/services/audit.service.ts`
+- [x] T011 [P] Implementar guard de autorización backend y extracción de sesión (`SUPERADMIN` vs `OBSERVADOR`) en `src/infrastructure/security/rbac-guard.ts`
+- [x] T012 [P] Implementar adaptador de sondeo no intrusivo SSH para Linux (handshake y banner en solo lectura, timeout de 5s, sin comandos modificadores) en `src/infrastructure/network/ssh-probe.ts`
+- [x] T013 [P] Implementar adaptador de sondeo TCP/WinRM HTTPS para Windows Server (comprobación de socket y latencia, timeout de 5s) en `src/infrastructure/network/winrm-probe.ts`
 
 **Checkpoint**: Base foundational completa. Las historias de usuario pueden implementarse de forma incremental e independiente.
 
@@ -51,15 +51,15 @@
 **Independent Test**: Iniciar sesión como SUPERADMIN, enviar el formulario de alta con credenciales técnicas válidas hacia un servidor de prueba; verificar respuesta HTTP 201, conectividad inicial confirmada, credencial cifrada en base de datos sin filtrarse en la respuesta, y registro en `inventory_audit_logs`.
 
 ### Tests for User Story 1 ⚠️
-- [ ] T014 [P] [US1] Pruebas de integración para endpoint de alta de servidor y sondeo SSH (camino feliz con clave SSH y camino infeliz de timeout) en `tests/integration/api/server-create.test.ts`
+- [x] T014 [P] [US1] Pruebas de integración para endpoint de alta de servidor y sondeo SSH (camino feliz con clave SSH y camino infeliz de timeout) en `tests/integration/api/server-create.test.ts`
 
 ### Implementation for User Story 1
-- [ ] T015 [P] [US1] Definir esquemas de validación Zod para alta de servidor (`CreateServerSchema` y `ServerCredentialSchema`) en `src/shared/validations/server.schema.ts`
-- [ ] T016 [US1] Implementar servicio de negocio `ServerService.createServer` coordinando validación, cifrado de credencial, sondeo inicial y auditoría en `src/core/services/server.service.ts`
-- [ ] T017 [US1] Implementar endpoint REST `POST /api/v1/servers` con verificación obligatoria de rol SUPERADMIN en `src/app/api/v1/servers/route.ts`
-- [ ] T018 [US1] Implementar endpoint de prueba de conectividad bajo demanda `POST /api/v1/servers/[id]/test-connection` en `src/app/api/v1/servers/[id]/test-connection/route.ts`
-- [ ] T019 [P] [US1] Implementar componente de formulario de alta `ServerForm` con selector de SO y carga de clave SSH en `src/components/servers/ServerForm.tsx`
-- [ ] T020 [US1] Implementar página de registro de servidor en `src/app/(dashboard)/servers/new/page.tsx`
+- [x] T015 [P] [US1] Definir esquemas de validación Zod para alta de servidor (`CreateServerSchema` y `ServerCredentialSchema`) en `src/shared/validations/server.schema.ts`
+- [x] T016 [US1] Implementar servicio de negocio `ServerService.createServer` coordinando validación, cifrado de credencial, sondeo inicial y auditoría en `src/core/services/server.service.ts`
+- [x] T017 [US1] Implementar endpoint REST `POST /api/v1/servers` con verificación obligatoria de rol SUPERADMIN en `src/app/api/v1/servers/route.ts`
+- [x] T018 [US1] Implementar endpoint de prueba de conectividad bajo demanda `POST /api/v1/servers/[id]/test-connection` en `src/app/api/v1/servers/[id]/test-connection/route.ts`
+- [x] T019 [P] [US1] Implementar componente de formulario de alta `ServerForm` con selector de SO y carga de clave SSH en `src/components/servers/ServerForm.tsx`
+- [x] T020 [US1] Implementar página de registro de servidor en `src/app/(dashboard)/servers/new/page.tsx`
 
 **Checkpoint**: User Story 1 (MVP) completamente funcional y verificable de extremo a extremo.
 
@@ -72,16 +72,16 @@
 **Independent Test**: Consultar el inventario con rol OBSERVADOR; aplicar filtros combinados por entorno/SO/salud; verificar que no se filtran secretos en JSON, los badges muestran icono + texto, y se devuelven los servidores esperados.
 
 ### Tests for User Story 2 ⚠️
-- [ ] T021 [P] [US2] Pruebas de integración para listado, paginación, filtros multifactoriales y purga de credenciales para rol OBSERVADOR en `tests/integration/api/server-list.test.ts`
+- [x] T021 [P] [US2] Pruebas de integración para listado, paginación, filtros multifactoriales y purga de credenciales para rol OBSERVADOR en `tests/integration/api/server-list.test.ts`
 
 ### Implementation for User Story 2
-- [ ] T022 [US2] Implementar servicio de consultas con filtrado indexado (entorno, SO, salud, etiquetas) y búsqueda en `src/core/services/server-query.service.ts`
-- [ ] T023 [US2] Implementar serializador DTO `ServerPresenter` que sanea las credenciales (exponiendo solo tipo y huella pública sin secreto) en `src/core/services/server-presenter.ts`
-- [ ] T024 [US2] Implementar endpoints REST `GET /api/v1/servers` y `GET /api/v1/servers/[id]` con soporte de paginación y filtros en `src/app/api/v1/servers/route.ts` y `src/app/api/v1/servers/[id]/route.ts`
-- [ ] T025 [P] [US2] Implementar componente de badge de salud accesible `ServerStatusBadge` (iconografía + texto descriptivo, no dependiente del color) en `src/components/servers/ServerStatusBadge.tsx`
-- [ ] T026 [P] [US2] Implementar tabla interactiva de inventario con filtros multifactoriales y búsqueda instantánea en `src/components/servers/ServerTable.tsx`
-- [ ] T027 [US2] Implementar página principal del catálogo de inventario en `src/app/(dashboard)/servers/page.tsx`
-- [ ] T028 [US2] Implementar vista de ficha técnica detallada del servidor en `src/app/(dashboard)/servers/[id]/page.tsx`
+- [x] T022 [US2] Implementar servicio de consultas con filtrado indexado (entorno, SO, salud, etiquetas) y búsqueda en `src/core/services/server-query.service.ts`
+- [x] T023 [US2] Implementar serializador DTO `ServerPresenter` que sanea las credenciales (exponiendo solo tipo y huella pública sin secreto) en `src/core/services/server-presenter.ts`
+- [x] T024 [US2] Implementar endpoints REST `GET /api/v1/servers` y `GET /api/v1/servers/[id]` con soporte de paginación y filtros en `src/app/api/v1/servers/route.ts` y `src/app/api/v1/servers/[id]/route.ts`
+- [x] T025 [P] [US2] Implementar componente de badge de salud accesible `ServerStatusBadge` (iconografía + texto descriptivo, no dependiente del color) en `src/components/servers/ServerStatusBadge.tsx`
+- [x] T026 [P] [US2] Implementar tabla interactiva de inventario con filtros multifactoriales y búsqueda instantánea en `src/components/servers/ServerTable.tsx`
+- [x] T027 [US2] Implementar página principal del catálogo de inventario en `src/app/(dashboard)/servers/page.tsx`
+- [x] T028 [US2] Implementar vista de ficha técnica detallada del servidor en `src/app/(dashboard)/servers/[id]/page.tsx`
 
 **Checkpoint**: User Stories 1 y 2 completamente operativas e independientes.
 
@@ -94,14 +94,14 @@
 **Independent Test**: Poner un servidor en `MAINTENANCE`; verificar suspensión de sondeos automáticos, emisión de evento de auditoría con motivo y confirmación de que un usuario OBSERVADOR recibe rechazo `403 Forbidden` al intentar editar.
 
 ### Tests for User Story 3 ⚠️
-- [ ] T029 [P] [US3] Pruebas de seguridad de autorización verificando respuesta `403 Forbidden` y auditoría ante intentos de edición por rol OBSERVADOR en `tests/integration/security/rbac-authorization.test.ts`
-- [ ] T030 [P] [US3] Pruebas unitarias de máquina de estados para transiciones de ciclo de vida (`ACTIVE` <-> `MAINTENANCE` <-> `DISABLED`) en `tests/unit/domain/lifecycle-state.test.ts`
+- [x] T029 [P] [US3] Pruebas de seguridad de autorización verificando respuesta `403 Forbidden` y auditoría ante intentos de edición por rol OBSERVADOR en `tests/integration/security/rbac-authorization.test.ts`
+- [x] T030 [P] [US3] Pruebas unitarias de máquina de estados para transiciones de ciclo de vida (`ACTIVE` <-> `MAINTENANCE` <-> `DISABLED`) en `tests/unit/domain/lifecycle-state.test.ts`
 
 ### Implementation for User Story 3
-- [ ] T031 [US3] Implementar servicio de ciclo de vida `ServerLifecycleService` gestionando transiciones de estado, silenciado de sondeos y auditoría en `src/core/services/server-lifecycle.service.ts`
-- [ ] T032 [US3] Implementar endpoints REST `PATCH /api/v1/servers/[id]` (metadatos) y `PATCH /api/v1/servers/[id]/lifecycle` (estado) en `src/app/api/v1/servers/[id]/route.ts` y `src/app/api/v1/servers/[id]/lifecycle/route.ts`
-- [ ] T033 [P] [US3] Implementar modal de ventana de mantenimiento con captura obligatoria de motivo en `src/components/servers/MaintenanceModal.tsx`
-- [ ] T034 [US3] Integrar controles de ciclo de vida y edición de metadatos en la vista de detalle en `src/app/(dashboard)/servers/[id]/page.tsx`
+- [x] T031 [US3] Implementar servicio de ciclo de vida `ServerLifecycleService` gestionando transiciones de estado, silenciado de sondeos y auditoría en `src/core/services/server-lifecycle.service.ts`
+- [x] T032 [US3] Implementar endpoints REST `PATCH /api/v1/servers/[id]` (metadatos) y `PATCH /api/v1/servers/[id]/lifecycle` (estado) en `src/app/api/v1/servers/[id]/route.ts` y `src/app/api/v1/servers/[id]/lifecycle/route.ts`
+- [x] T033 [P] [US3] Implementar modal de ventana de mantenimiento con captura obligatoria de motivo en `src/components/servers/MaintenanceModal.tsx`
+- [x] T034 [US3] Integrar controles de ciclo de vida y edición de metadatos en la vista de detalle en `src/app/(dashboard)/servers/[id]/page.tsx`
 
 **Checkpoint**: Ciclo de vida y mantenimiento funcional con seguridad estricta en backend.
 
@@ -114,12 +114,12 @@
 **Independent Test**: Ejecutar baja de un servidor enviando el nombre de confirmación exacto; verificar código HTTP 200, eliminación física de la clave en `server_credentials`, paso a estado `RETIRED` y persistencia intacta de logs de auditoría pasados.
 
 ### Tests for User Story 4 ⚠️
-- [ ] T035 [P] [US4] Pruebas de integración para desincorporación de servidores, purgado físico de credenciales y preservación de auditoría en `tests/integration/api/server-retire.test.ts`
+- [x] T035 [P] [US4] Pruebas de integración para desincorporación de servidores, purgado físico de credenciales y preservación de auditoría en `tests/integration/api/server-retire.test.ts`
 
 ### Implementation for User Story 4
-- [ ] T036 [US4] Implementar servicio de desincorporación `ServerDecommissionService` con validación de nombre, purgado de credenciales y auditoría en `src/core/services/server-decommission.service.ts`
-- [ ] T037 [US4] Implementar endpoint REST `DELETE /api/v1/servers/[id]` con validación del payload de confirmación en `src/app/api/v1/servers/[id]/route.ts`
-- [ ] T038 [P] [US4] Implementar diálogo de confirmación de retiro con verificación por escritura del nombre en `src/components/servers/DecommissionDialog.tsx`
+- [x] T036 [US4] Implementar servicio de desincorporación `ServerDecommissionService` con validación de nombre, purgado de credenciales y auditoría en `src/core/services/server-decommission.service.ts`
+- [x] T037 [US4] Implementar endpoint REST `DELETE /api/v1/servers/[id]` con validación del payload de confirmación en `src/app/api/v1/servers/[id]/route.ts`
+- [x] T038 [P] [US4] Implementar diálogo de confirmación de retiro con verificación por escritura del nombre en `src/components/servers/DecommissionDialog.tsx`
 
 **Checkpoint**: Las 4 historias de usuario están implementadas y verificadas de forma aislada.
 
@@ -129,9 +129,9 @@
 
 **Purpose**: Pruebas de extremo a extremo (E2E), endurecimiento de seguridad y validación de criterios de aprobación.
 
-- [ ] T039 [P] Implementar suite de pruebas E2E con Playwright cubriendo el flujo completo de alta, visualización con filtros, mantenimiento y baja en `tests/e2e/server-inventory.spec.ts`
-- [ ] T040 [P] Redactar guía operativa de despliegue, configuración de secretos y resolución de problemas en `docs/server-inventory-guide.md`
-- [ ] T041 Ejecutar validación final de todos los criterios de aceptación y escenarios del [quickstart.md](quickstart.md) verificando conformidad estricta con la Constitución v1.0.0
+- [x] T039 [P] Implementar suite de pruebas E2E con Playwright cubriendo el flujo completo de alta, visualización con filtros, mantenimiento y baja en `tests/e2e/server-inventory.spec.ts`
+- [x] T040 [P] Redactar guía operativa de despliegue, configuración de secretos y resolución de problemas en `docs/server-inventory-guide.md`
+- [x] T041 Ejecutar validación final de todos los criterios de aceptación y escenarios del [quickstart.md](quickstart.md) verificando conformidad estricta con la Constitución v1.0.0
 
 ---
 

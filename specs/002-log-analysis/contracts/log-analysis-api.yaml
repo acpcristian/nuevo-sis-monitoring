@@ -1,0 +1,577 @@
+openapi: 3.1.0
+info:
+  title: API de Análisis de Logs y Diagnóstico Estructurado
+  version: 1.0.0
+  description: >
+    API REST para la ingesta, clasificación, consulta, diagnóstico estructurado
+    y gestión de alertas de registros de logs de la Plataforma Empresarial de
+    Monitoreo. Cumple con los Principios II, III, IV, VI, VII, VIII, XII y XIII
+    de la Constitución.
+
+servers:
+  - url: /api/v1
+    description: Servidor de API principal
+
+security:
+  - BearerAuth: []
+
+paths:
+  /logs:
+    get:
+      summary: Consultar eventos de log con filtros
+      description: >
+        Devuelve el listado de eventos de log con filtros opcionales por
+        categoría, servidor, rango de fechas, severidad y búsqueda textual.
+        Accesible por SUPERADMIN y OBSERVADOR. Los mensajes están sanetizados.
+      operationId: listLogEvents
+      parameters:
+        - name: server_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: category
+          in: query
+          schema:
+            type: string
+            enum: [SYS_KERNEL, AUTH_ACCESS, SSH_NETWORK, SYSTEM_SERVICE, WEB_APP, DATABASE, STORAGE_HW, BACKUP_TASK, SECURITY_AUDIT, AGENT_ERROR]
+        - name: severity
+          in: query
+          schema:
+            type: string
+            enum: [INFO, WARN, ERROR, CRITICAL]
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date-time
+          description: Fecha/hora de inicio (event_timestamp, UTC)
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date-time
+          description: Fecha/hora de fin (event_timestamp, UTC)
+        - name: search
+          in: query
+          schema:
+            type: string
+          description: Búsqueda textual sobre mensaje sanetizado
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+      responses:
+        '200':
+          description: Listado paginado de eventos de log
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LogEventListResponse'
+        '401':
+          $ref: '#/components/schemas/ErrorResponse'
+
+    post:
+      summary: Ingerir un nuevo evento de log
+      description: >
+        Recibe un registro de log de un servidor supervisado, lo clasifica en
+        una categoría, sanitiza datos sensibles y lo persiste. Exclusivo para
+        agentes de recolección o SUPERADMIN.
+      operationId: ingestLogEvent
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IngestLogRequest'
+      responses:
+        '201':
+          description: Evento de log ingerido satisfactoriamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LogEventResponse'
+        '400':
+          description: Datos inválidos o formato incorrecto
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Denegado por permisos insuficientes
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /logs/{id}:
+    get:
+      summary: Obtener detalle de un evento de log
+      description: >
+        Retorna el detalle de un evento de log específico con su mensaje
+        sanetizado y metadatos. Los secretos nunca se devuelven en claro.
+      operationId: getLogEventById
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Detalle del evento de log
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LogEventResponse'
+        '404':
+          description: Evento de log no encontrado
+
+  /diagnoses:
+    get:
+      summary: Listar diagnósticos de incidentes
+      description: >
+        Devuelve el listado de diagnósticos estructurados generados.
+        Accesible por SUPERADMIN y OBSERVADOR (consulta solo lectura).
+      operationId: listDiagnoses
+      parameters:
+        - name: server_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [DRAFT, FINAL, SUPERSEDED]
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+      responses:
+        '200':
+          description: Listado paginado de diagnósticos
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DiagnosisListResponse'
+        '401':
+          $ref: '#/components/schemas/ErrorResponse'
+
+    post:
+      summary: Generar diagnóstico estructurado de incidente
+      description: >
+        Crea un diagnóstico asistido a partir de eventos de log relacionados,
+        con hechos observados, causa probable, evidencias de soporte y
+        recomendaciones. Exclusivo para SUPERADMIN.
+      operationId: createDiagnosis
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateDiagnosisRequest'
+      responses:
+        '201':
+          description: Diagnóstico generado satisfactoriamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DiagnosisResponse'
+        '400':
+          description: Datos inválidos
+        '403':
+          description: Denegado para rol OBSERVADOR
+
+  /diagnoses/{id}:
+    get:
+      summary: Obtener detalle de un diagnóstico
+      operationId: getDiagnosisById
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Detalle del diagnóstico
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DiagnosisResponse'
+        '404':
+          description: Diagnóstico no encontrado
+
+  /alerts:
+    get:
+      summary: Listar alertas de log deduplicadas
+      description: >
+        Devuelve alertas agrupadas por tormenta de eventos o patrones
+        correlacionados. Accesible por SUPERADMIN y OBSERVADOR.
+      operationId: listLogAlerts
+      parameters:
+        - name: server_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [ACTIVE, ACKNOWLEDGED, RESOLVED]
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+      responses:
+        '200':
+          description: Listado paginado de alertas
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LogAlertListResponse'
+        '401':
+          $ref: '#/components/schemas/ErrorResponse'
+
+  /alerts/{id}/acknowledge:
+    patch:
+      summary: Reconocer una alerta
+      description: >
+        Marca una alerta como reconocida por el usuario autenticado.
+        Exclusivo para SUPERADMIN.
+      operationId: acknowledgeLogAlert
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Alerta reconocida
+        '403':
+          description: Denegado para rol OBSERVADOR
+        '404':
+          description: Alerta no encontrada
+
+  /freshness:
+    get:
+      summary: Consultar estados de frescura de servidores
+      description: >
+        Devuelve el estado de actualidad de los datos de telemetría por
+        servidor (FRESH, STALE, AGENT_DISCONNECTED, UNREACHABLE).
+      operationId: listDataFreshness
+      parameters:
+        - name: server_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: state
+          in: query
+          schema:
+            type: string
+            enum: [FRESH, STALE, AGENT_DISCONNECTED, UNREACHABLE]
+      responses:
+        '200':
+          description: Listado de estados de frescura
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DataFreshnessListResponse'
+        '401':
+          $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    IngestLogRequest:
+      type: object
+      required:
+        - server_id
+        - category
+        - event_timestamp
+        - severity
+        - message
+      properties:
+        server_id:
+          type: string
+          format: uuid
+          description: Identificador del servidor asociado (opcional si es desconocido)
+        category:
+          type: string
+          enum: [SYS_KERNEL, AUTH_ACCESS, SSH_NETWORK, SYSTEM_SERVICE, WEB_APP, DATABASE, STORAGE_HW, BACKUP_TASK, SECURITY_AUDIT, AGENT_ERROR]
+        event_timestamp:
+          type: string
+          format: date-time
+          description: Momento del evento en el servidor de origen (UTC)
+        event_type:
+          type: string
+          description: Tipo de evento (ej. ssh_login_failed)
+        severity:
+          type: string
+          enum: [INFO, WARN, ERROR, CRITICAL]
+        message:
+          type: string
+          description: Mensaje del log (puede contener datos sensibles; serán enmascarados)
+        raw_log:
+          type: string
+          description: Texto original del log (almacenado inmutablemente)
+        metadata:
+          type: object
+          description: Metadatos flexibles adicionales
+
+    LogEventResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        server_id:
+          type: string
+          format: uuid
+        category:
+          type: string
+        event_timestamp:
+          type: string
+          format: date-time
+        ingestion_timestamp:
+          type: string
+          format: date-time
+        processed_timestamp:
+          type: string
+          format: date-time
+        event_type:
+          type: string
+        severity:
+          type: string
+          enum: [INFO, WARN, ERROR, CRITICAL]
+        sanitized_message:
+          type: string
+        is_untrusted:
+          type: boolean
+        metadata:
+          type: object
+
+    LogEventListResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/LogEventResponse'
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+        pages:
+          type: integer
+
+    CreateDiagnosisRequest:
+      type: object
+      required:
+        - event_ids
+        - observed_facts
+        - probable_cause
+        - confidence_level
+      properties:
+        event_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+          description: IDs de eventos de log que sirven como evidencia
+        observed_facts:
+          type: string
+          description: Hechos constatables extraídos de los logs
+        probable_cause:
+          type: string
+          description: Hipótesis técnica fundamentada
+        evidence_support:
+          type: object
+          description: Referencias estructuradas a evidencias de soporte
+        alternative_diagnoses:
+          type: string
+        impact_potential:
+          type: string
+        verification_steps:
+          type: string
+        remediation_recommendations:
+          type: string
+        confidence_level:
+          type: string
+          enum: [LOW, MEDIUM, HIGH]
+
+    DiagnosisResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        generated_by:
+          type: string
+        generated_at:
+          type: string
+          format: date-time
+        event_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+        observed_facts:
+          type: string
+        probable_cause:
+          type: string
+        evidence_support:
+          type: object
+        alternative_diagnoses:
+          type: string
+        impact_potential:
+          type: string
+        verification_steps:
+          type: string
+        remediation_recommendations:
+          type: string
+        confidence_level:
+          type: string
+          enum: [LOW, MEDIUM, HIGH]
+        status:
+          type: string
+          enum: [DRAFT, FINAL, SUPERSEDED]
+
+    DiagnosisListResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/DiagnosisResponse'
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+        pages:
+          type: integer
+
+    LogAlertListResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/LogAlertResponse'
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+        pages:
+          type: integer
+
+    LogAlertResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        server_id:
+          type: string
+          format: uuid
+        category:
+          type: string
+        pattern_type:
+          type: string
+        event_count:
+          type: integer
+        window_start:
+          type: string
+          format: date-time
+        window_end:
+          type: string
+          format: date-time
+        severity:
+          type: string
+          enum: [INFO, WARN, ERROR, CRITICAL]
+        status:
+          type: string
+          enum: [ACTIVE, ACKNOWLEDGED, RESOLVED]
+        acknowledged_by:
+          type: string
+        acknowledged_at:
+          type: string
+          format: date-time
+
+    DataFreshnessListResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/DataFreshnessResponse'
+
+    DataFreshnessResponse:
+      type: object
+      properties:
+        server_id:
+          type: string
+          format: uuid
+        server_name:
+          type: string
+        freshness_state:
+          type: string
+          enum: [FRESH, STALE, AGENT_DISCONNECTED, UNREACHABLE]
+        last_telemetry_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    ErrorResponse:
+      type: object
+      required:
+        - error_code
+        - message
+      properties:
+        error_code:
+          type: string
+        message:
+          type: string
+        details:
+          type: array
+          items:
+            type: string

@@ -95,3 +95,4 @@
    - **No.** Se implementa desincorporación lógica (`lifecycle_state = 'RETIRED'`). Los datos históricos de incidentes y auditoría permanecen vinculados para trazabilidad (*Principio VI y VIII*), pero las credenciales se purgan físicamente.
 3. **¿Cómo se previene el flapping de estado si la red oscila?**
    - Un servidor solo pasa a `ONLINE` o `UNREACHABLE` tras 2 comprobaciones consecutivas fallidas o exitosas, clasificándose temporalmente como `DEGRADED` durante la fluctuación.
+

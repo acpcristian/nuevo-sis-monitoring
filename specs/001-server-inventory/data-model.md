@@ -189,3 +189,4 @@ stateDiagram-v2
 4. **`UNREACHABLE`**: 2 comprobaciones consecutivas con `TIMEOUT` o `REFUSED`.
 5. **`AUTH_FAILED`**: El servidor responde al puerto pero rechaza la clave/credencial técnica.
 6. Si `lifecycle_state` pasa a `MAINTENANCE` o `DISABLED`, el motor de sondeos no computa estados de error ni emite alertas.
+
