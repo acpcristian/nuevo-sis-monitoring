@@ -6,7 +6,7 @@ ENV NEXT_TELEMETRY_DISABLED=1
 
 # Dependencias (con cache por capa)
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
-RUN corepack enable && corepack prepare pnpm@9.12.0 --activate \
+RUN corepack enable && corepack prepare pnpm@12.11.2 --activate \
   && pnpm install --frozen-lockfile
 
 # Build de la app
