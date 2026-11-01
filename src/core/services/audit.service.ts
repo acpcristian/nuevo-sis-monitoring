@@ -14,7 +14,36 @@ export interface AuditEventParams {
     | "LOG_ALERT_CREATED"
     | "LOG_ALERT_MERGED"
     | "LOG_ALERT_ACKNOWLEDGED"
-    | "LOG_ALERT_RESOLVED";
+    | "LOG_ALERT_RESOLVED"
+    // — 003 Incident Management —
+    | "INCIDENT_CREATED"
+    | "INCIDENT_ASSIGNED"
+    | "INCIDENT_ESCALATED"
+    | "INCIDENT_RESOLVED"
+    | "INCIDENT_CLOSED"
+    | "INCIDENT_STATUS_CHANGED"
+    // — 004 Notificaciones —
+    | "CHANNEL_CREATED"
+    | "CHANNEL_UPDATED"
+    | "CHANNEL_DELETED"
+    | "CHANNEL_TESTED"
+    | "NOTIFICATION_SENT"
+    | "NOTIFICATION_FAILED"
+    | "NOTIFICATION_RETRY_SCHEDULED"
+    | "NOTIFICATION_RETRY_PROCESSED"
+    // — 005 Dashboards —
+    | "REPORT_EXPORTED"
+    // — 006 Automatización —
+    | "PLAYBOOK_CREATED"
+    | "PLAYBOOK_UPDATED"
+    | "PLAYBOOK_DELETED"
+    | "PLAYBOOK_EXECUTED"
+    | "PLAYBOOK_FAILED"
+    // — Autenticación —
+    | "LOGIN_SUCCESS"
+    | "LOGIN_FAILED"
+    | "USER_CREATED"
+    | "USER_UPDATED";
   targetServerId?: string | null;
   detailsDiff: Record<string, unknown>;
   ipAddress?: string | null;
@@ -58,7 +87,6 @@ export class AuditService {
    */
   public static async recordEvent(params: AuditEventParams): Promise<void> {
     const safeDiff = this.sanitizeDiff(params.detailsDiff);
-
     await prisma.inventoryAuditLog.create({
       data: {
         userId: params.userId,

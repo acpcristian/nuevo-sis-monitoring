@@ -74,6 +74,7 @@ model Server {
   logEvents        LogEvent[]
   dataFreshness    DataFreshnessState?
   logAlerts        LogAlert[]
+  incidents        Incident[]
 
   @@index([environment, healthStatus, lifecycleState])
   @@index([ipAddress])
@@ -222,6 +223,7 @@ model LogEvent {
   server            Server?        @relation(fields: [serverId], references: [id], onDelete: SetNull)
   diagnoses         IncidentDiagnosis[]
   alerts            LogAlert[]
+  incidents         Incident[]
 
   @@index([serverId, eventTimestamp(sort: Desc)])
   @@index([categoryId, eventTimestamp(sort: Desc)])
@@ -277,9 +279,245 @@ model LogAlert {
 
   server           Server?     @relation(fields: [serverId], references: [id], onDelete: SetNull)
   events           LogEvent[]
+  incidents        Incident[]
 
   @@index([serverId, status])
   @@index([windowStart, windowEnd])
   @@map("log_alerts")
+}
+
+// =============================================================================
+// 003 — Incident Management + usuarios/RBAC (Principios IV, VI, VIII)
+// =============================================================================
+
+enum UserRole {
+  SUPERADMIN
+  OBSERVADOR
+}
+
+enum IncidentStatus {
+  OPEN
+  ASSIGNED
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+enum IncidentPriority {
+  CRITICAL
+  HIGH
+  MEDIUM
+  LOW
+}
+
+enum IncidentCategory {
+  INCIDENT_CRITICAL
+  INCIDENT_MAJOR
+  INCIDENT_MINOR
+  INCIDENT_MAINTENANCE
+}
+
+model User {
+  id           String   @id @default(uuid())
+  username     String   @unique
+  displayName  String?  @map("display_name")
+  role         UserRole
+  passwordHash String   @map("password_hash")
+  isActive     Boolean  @default(true) @map("is_active")
+  lastLoginAt  DateTime? @map("last_login_at")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@map("users")
+}
+
+model Incident {
+  id              String            @id @default(uuid())
+  title           String
+  description     String
+  category        IncidentCategory
+  priority        IncidentPriority
+  status          IncidentStatus    @default(OPEN)
+  serverId        String?           @map("server_id")
+  alertId         String?           @map("alert_id")
+  eventId         String?           @map("event_id")
+  assignedTo      String?
+  slaTimeoutMin   Int?              @map("sla_timeout_min")
+  slaDueAt        DateTime?         @map("sla_due_at")
+  slaMet          Boolean?          @map("sla_met")
+  createdBy       String            @map("created_by")
+  assignedAt      DateTime?         @map("assigned_at")
+  startedAt       DateTime?         @map("started_at")
+  resolvedAt      DateTime?         @map("resolved_at")
+  closedAt        DateTime?         @map("closed_at")
+  closedBy        String?           @map("closed_by")
+  escalationLevel Int               @default(0) @map("escalation_level")
+  escalatedAt     DateTime?         @map("escalated_at")
+  rootCause       String?           @map("root_cause")
+  correctiveActions String?         @map("corrective_actions")
+  details         Json?
+  createdAt       DateTime          @default(now()) @map("created_at")
+  updatedAt       DateTime          @updatedAt @map("updated_at")
+
+  server          Server?             @relation(fields: [serverId], references: [id], onDelete: SetNull)
+  alert           LogAlert?           @relation(fields: [alertId], references: [id], onDelete: SetNull)
+  event           LogEvent?           @relation(fields: [eventId], references: [id], onDelete: SetNull)
+  auditTrail      IncidentAuditLog[]
+
+  @@index([status, priority, category])
+  @@index([serverId])
+  @@index([assignedTo, status])
+  @@index([createdAt(sort: Desc)])
+  @@map("incidents")
+}
+
+/// Auditoría append-only del ciclo de vida del incidente (Principios VI, VIII)
+model IncidentAuditLog {
+  id            String    @id @default(uuid())
+  incidentId    String    @map("incident_id")
+  userId        String    @map("user_id")
+  fromStatus    String?   @map("from_status")
+  toStatus      String    @map("to_status")
+  action        String
+  details       Json?
+  createdAt     DateTime  @default(now()) @map("created_at")
+
+  incident      Incident  @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+
+  @@index([incidentId, createdAt(sort: Desc)])
+  @@map("incident_audit_logs")
+}
+
+// =============================================================================
+// 004 — Notificaciones (canales cifrados, entregabilidad, dedup)
+// =============================================================================
+
+enum ChannelType {
+  EMAIL
+  SLACK
+  WEBHOOK
+  PAGERDUTY
+}
+
+enum ChannelStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum DeliveryStatus {
+  SENT
+  FAILED
+  RETRYING
+}
+
+model NotificationChannel {
+  id               String        @id @default(uuid())
+  type             ChannelType
+  name             String        @unique
+  description      String?
+  status           ChannelStatus @default(ACTIVE)
+  encryptedPayload String        @map("encrypted_payload")
+  iv               String
+  authTag          String        @map("auth_tag")
+  configSummary    Json?         @map("config_summary")
+  lastTestAt       DateTime?     @map("last_test_at")
+  lastTestStatus   String?       @map("last_test_status")
+  lastTestDetail   String?       @map("last_test_detail")
+  failureCount     Int           @default(0) @map("failure_count")
+  lastFailureAt    DateTime?     @map("last_failure_at")
+  createdAt        DateTime      @default(now()) @map("created_at")
+  updatedAt        DateTime      @updatedAt @map("updated_at")
+
+  deliveries       NotificationDelivery[]
+
+  @@map("notification_channels")
+}
+
+model NotificationDelivery {
+  id            String         @id @default(uuid())
+  channelId     String         @map("channel_id")
+  dedupKey      String         @map("dedup_key")
+  title         String
+  message       String
+  severity      String
+  incidentId    String?        @map("incident_id")
+  status        DeliveryStatus
+  attempts      Int            @default(1)
+  lastAttemptAt DateTime       @default(now()) @map("last_attempt_at")
+  nextRetryAt   DateTime?      @map("next_retry_at")
+  error         String?
+  messageId     String?        @map("message_id")
+  deliveredAt   DateTime?      @map("delivered_at")
+  createdAt     DateTime       @default(now()) @map("created_at")
+
+  channel       NotificationChannel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+
+  @@unique([channelId, dedupKey])
+  @@index([status, nextRetryAt])
+  @@index([incidentId])
+
+  @@map("notification_deliveries")
+}
+
+// =============================================================================
+// 006 — Automatización (playbooks read-only-first, human-in-the-loop, Principio V)
+// =============================================================================
+
+enum ActionKind {
+  RESTART_SERVICE
+  APPLY_CONFIG
+  RUN_COMMAND
+  NOTIFY_TEAM
+  CHECK_STATE
+  WAIT_SECONDS
+}
+
+enum PlaybookStatus {
+  ACTIVE
+  DISABLED
+}
+
+enum ExecutionStatus {
+  PENDING
+  RUNNING
+  SUCCESS
+  FAILED
+  CANCELLED
+}
+
+model Playbook {
+  id          String         @id @default(uuid())
+  name        String         @unique
+  description String?
+  status      PlaybookStatus @default(DISABLED)
+  trigger     Json
+  steps       Json
+  createdBy   String         @map("created_by")
+  lastRunAt   DateTime?      @map("last_run_at")
+  createdAt   DateTime       @default(now()) @map("created_at")
+  updatedAt   DateTime       @updatedAt @map("updated_at")
+
+  executions  PlaybookExecution[]
+
+  @@index([status, lastRunAt(sort: Desc)])
+  @@map("playbooks")
+}
+
+model PlaybookExecution {
+  id          String          @id @default(uuid())
+  playbookId  String          @map("playbook_id")
+  trigger     Json?
+  status      ExecutionStatus @default(PENDING)
+  automatic   Boolean         @default(false)
+  stepsLog    Json            @map("steps_log")
+  startedAt   DateTime        @default(now()) @map("started_at")
+  finishedAt  DateTime?       @map("finished_at")
+  error       String?
+
+  playbook    Playbook        @relation(fields: [playbookId], references: [id], onDelete: Cascade)
+
+  @@index([playbookId, startedAt(sort: Desc)])
+  @@index([status])
+  @@map("playbook_executions")
 }
 

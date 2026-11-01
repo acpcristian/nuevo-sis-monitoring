@@ -16,15 +16,15 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { title, message, severity, ruleId, metadata } = body;
+    const { title, message, severity, incidentId, metadata } = body;
 
-    const results = await NotificationService.sendNotification(
+    const results = await NotificationService.sendNotification({
       title,
       message,
-      severity as "CRITICAL" | "MAJOR" | "MINOR",
-      ruleId,
-      metadata
-    );
+      severity,
+      incidentId,
+      metadata,
+    });
 
     return NextResponse.json({ results }, { status: 200 });
   } catch (error: unknown) {

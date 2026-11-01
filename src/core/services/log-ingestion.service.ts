@@ -1,11 +1,12 @@
 import { prisma } from "@/infrastructure/db/prisma";
 import { NotFoundError } from "@/shared/errors/domain-errors";
+import type { Prisma } from "@prisma/client";
 import { classifyLog, sanitizeMessage, containsSensitiveData } from "@/infrastructure/log";
 import { AuditService } from "@/core/services/audit.service";
 import { LogCategory, LogSeverity, FreshnessState, ConfidenceLevel } from "@/core/domain/log.types";
 
 export interface IngestLogInput {
-  serverId: string;
+  serverId?: string;
   category?: LogCategory;
   eventTimestamp: Date;
   eventType?: string | null;
@@ -46,20 +47,27 @@ export class LogIngestionService {
     const resolvedCategory = category ?? classifyLog(message, rawLog);
 
     // 2. Sanitizar el mensaje (enmascarar datos sensibles)
-    const { sanitizedMessage, hasSensitiveData } = sanitizeMessage(message);
+    const { sanitized, hasSensitiveData } = sanitizeMessage(message);
 
-    // 3. Persistir el evento de log
+    // 3. Garantizar la fila de categoría (taxonomía idempotente)
+    const categoryModel = await prisma.logCategoryModel.upsert({
+      where: { code: resolvedCategory },
+      create: { code: resolvedCategory, name: resolvedCategory },
+      update: {},
+    });
+
+    // 3. Persistir el evento de log (rawLog append-only; nunca vacío)
     const event = await prisma.logEvent.create({
       data: {
-        serverId,
-        category: resolvedCategory,
+        serverId: serverId ?? null,
+        categoryId: categoryModel.id,
         eventTimestamp,
         eventType,
         severity: severity ?? "INFO",
-        sanitizedMessage,
-        rawLog: rawLog ?? null,
-        metadata,
-        isUntrusted: containsSensitiveData(message),
+        sanitizedMessage: sanitized,
+        rawLog: rawLog ?? message,
+        metadata: (metadata ?? undefined) as unknown as Prisma.InputJsonValue,
+        isUntrusted: containsSensitiveData(message) || hasSensitiveData,
       },
       include: {
         server: {
@@ -72,7 +80,7 @@ export class LogIngestionService {
     });
 
     // 4. Actualizar estado de frescura del servidor
-    await this.updateServerFreshness(serverId, eventTimestamp);
+    if (serverId) { await this.updateServerFreshness(serverId, eventTimestamp); }
 
     // 5. Registrar en auditoría
     await AuditService.recordEvent({
@@ -89,12 +97,11 @@ export class LogIngestionService {
 
     return {
       eventId: event.id,
-      category: event.category.code as LogCategory,
+      category: resolvedCategory,
       sanitizedMessage: event.sanitizedMessage,
       hasSensitiveData,
       dataFreshnessUpdated: true,
-    };
-  }
+    };  }
 
   /**
    * Actualiza el estado de frescura basado en la última telemetría recibida.

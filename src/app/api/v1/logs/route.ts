@@ -71,9 +71,18 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
     const validatedInput = IngestLogSchema.parse(body);
+    validatedInput.serverId ??= undefined;
+    validatedInput.rawLog ??= undefined;
+    validatedInput.metadata ??= undefined;
 
     const ingested = await LogIngestionService.ingestLog(
-      validatedInput,
+      {
+        ...validatedInput,
+        serverId: validatedInput.serverId as string | undefined,
+        eventTimestamp: new Date(validatedInput.eventTimestamp),
+        rawLog: validatedInput.rawLog ?? undefined,
+        metadata: (validatedInput.metadata ?? undefined) as Record<string, unknown> | undefined,
+      },
       user.id,
       user.ipAddress
     );
