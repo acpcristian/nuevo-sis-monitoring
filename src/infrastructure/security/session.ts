@@ -1,4 +1,4 @@
-import { createHmac, timingSafeEqual } from "node:crypto";
+import { createHmac, timingSafeEqual } from "crypto";
 import { getEnv } from "@/shared/env";
 import { UserRole } from "@/core/domain/server.types";
 
