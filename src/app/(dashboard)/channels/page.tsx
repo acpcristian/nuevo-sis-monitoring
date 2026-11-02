@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState, FormEvent } from "react";
-import { Bell, Plus, Loader2, AlertCircle, Send, Trash2, RefreshCw, CheckCircle2, XCircle } from "lucide-react";
+import { Bell, Plus, Loader2, AlertCircle, Send, Trash2, RefreshCw, CheckCircle2, XCircle, FileText, Activity, Shield, TrendingUp, Mail, MessageSquare, Zap, Cloud } from "lucide-react";
 
 type ChannelType = "EMAIL" | "SLACK" | "WEBHOOK" | "PAGERDUTY";
 
@@ -186,30 +186,67 @@ export default function ChannelsPage() {
 
   const fmt = (s: string | null) => (s ? new Date(s).toLocaleString("es-BO", { dateStyle: "short", timeStyle: "short" }) : "—");
 
+  const metrics = {
+    total: channels.length,
+    active: channels.filter(c => c.status === 'ACTIVE').length,
+    failures: channels.reduce((acc, c) => acc + c.failureCount, 0),
+    deliveries: deliveries.length,
+  };
+
+  const metricCards = [
+    { label: "Canales Totales", value: metrics.total, icon: Bell, color: "indigo" as const },
+    { label: "Canales Activos", value: metrics.active, icon: CheckCircle2, color: "emerald" as const },
+    { label: "Fallos Globales", value: metrics.failures, icon: AlertCircle, color: "rose" as const },
+    { label: "Entregas Totales", value: metrics.deliveries, icon: Send, color: "blue" as const },
+  ];
+
   return (
-    <div className="max-w-7xl mx-auto py-8 px-4 sm:px-6 space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2">
-            <Bell className="w-6 h-6 text-amber-600" />
-            <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Notificaciones</h1>
+    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white">
+      <div className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8 space-y-8">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+          <div className="space-y-2">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-amber-600 rounded-xl shadow-medium">
+                <Bell className="w-6 h-6 text-white" />
+              </div>
+              <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Notificaciones</h1>
+            </div>
+            <p className="text-sm text-slate-600 ml-[52px]">
+              Canales de alertamiento con credenciales cifradas y reintentos automáticos.
+            </p>
           </div>
-          <p className="text-sm text-slate-500 mt-1">
-            Canales de alertamiento con credenciales cifradas, dedup anti-tormenta y reintentos con backoff.
-          </p>
+          <div className="flex gap-3">
+            <button onClick={load} className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-slate-300 bg-white text-sm font-semibold text-slate-700 hover:bg-slate-50 transition">
+              <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} /> Actualizar
+            </button>
+            <button
+              onClick={() => setShowForm((v) => !v)}
+              className="inline-flex items-center gap-2 px-5 py-2.5 bg-amber-600 hover:bg-amber-700 text-white text-sm font-semibold rounded-xl transition shadow-medium hover:shadow-large"
+            >
+              <Plus className="w-4 h-4" /> Nuevo Canal
+            </button>
+          </div>
         </div>
-        <div className="flex gap-2">
-          <button onClick={load} className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-slate-300 bg-white text-sm text-slate-700 hover:bg-slate-50">
-            <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} /> Refrescar
-          </button>
-          <button
-            onClick={() => setShowForm((v) => !v)}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white text-sm font-medium rounded-lg transition shadow-sm"
-          >
-            <Plus className="w-4 h-4" /> Nuevo canal
-          </button>
+
+        {/* Métricas KPI */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {metricCards.map((metric) => {
+            const Icon = metric.icon;
+            return (
+              <div key={metric.label} className="relative overflow-hidden bg-white rounded-2xl shadow-soft border border-slate-200 p-6">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">{metric.label}</p>
+                    <p className="text-3xl font-bold text-slate-900 mt-2">{metric.value}</p>
+                  </div>
+                  <div className={`p-3 rounded-xl bg-${metric.color}-50`}>
+                    <Icon className={`w-5 h-5 text-${metric.color}-600`} />
+                  </div>
+                </div>
+              </div>
+            );
+          })}
         </div>
-      </div>
 
       {banner && (
         <div className="rounded-lg bg-green-50 border border-green-100 px-4 py-3 text-sm text-green-800 flex items-center gap-2">
@@ -423,6 +460,7 @@ export default function ChannelsPage() {
           </div>
         )}
       </div>
+  </div>
     </div>
   );
 }

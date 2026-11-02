@@ -65,16 +65,16 @@ export function LogTable({ logs, onRefresh, isLoading }: LogTableProps) {
   ];
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-      <div className="p-4 border-b border-slate-100 flex flex-col md:flex-row gap-3 items-center justify-between bg-slate-50/50">
-        <div className="relative w-full md:w-96">
-          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+    <div className="bg-white rounded-2xl shadow-soft border border-slate-200 overflow-hidden">
+      <div className="p-5 border-b border-slate-100 flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between bg-gradient-to-r from-slate-50 to-white">
+        <div className="relative w-full lg:w-96">
+          <Search className="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
             type="text"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             placeholder="Buscar por mensaje, servidor o ID..."
-            className="w-full pl-9 pr-3 py-1.5 text-sm bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+            className="w-full pl-11 pr-4 py-3 text-sm bg-white border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 focus:outline-none shadow-soft transition-all"
           />
         </div>
 
@@ -124,15 +124,15 @@ export function LogTable({ logs, onRefresh, isLoading }: LogTableProps) {
       </div>
 
       <div className="overflow-x-auto">
-        <table className="w-full text-left text-sm text-slate-600">
-          <thead className="bg-slate-100/70 text-xs uppercase font-semibold text-slate-500 border-b border-slate-200">
+        <table className="w-full text-left text-sm">
+          <thead className="bg-slate-50 text-xs uppercase font-semibold text-slate-600 border-b border-slate-200">
             <tr>
-              <th className="py-3 px-4">Fecha del Evento</th>
-              <th className="py-3 px-4">Categoría</th>
-              <th className="py-3 px-4">Severidad</th>
-              <th className="py-3 px-4">Servidor</th>
-              <th className="py-3 px-4">Mensaje</th>
-              <th className="py-3 px-4 text-right">Acción</th>
+              <th className="py-4 px-6 font-semibold">Fecha del Evento</th>
+              <th className="py-4 px-6 font-semibold">Categoría</th>
+              <th className="py-4 px-6 font-semibold">Severidad</th>
+              <th className="py-4 px-6 font-semibold">Servidor</th>
+              <th className="py-4 px-6 font-semibold">Mensaje</th>
+              <th className="py-4 px-6 text-right font-semibold">Acción</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">

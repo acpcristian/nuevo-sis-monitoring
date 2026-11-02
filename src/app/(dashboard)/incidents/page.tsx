@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
-import { Siren, Plus, AlertTriangle, ChevronRight, Timer, Clock } from "lucide-react";
+import { Siren, Plus, AlertTriangle, ChevronRight, Timer, Clock, Activity, FileText, Users, TrendingUp } from "lucide-react";
 
 type Status = "OPEN" | "ASSIGNED" | "IN_PROGRESS" | "RESOLVED" | "CLOSED";
 type Priority = "CRITICAL" | "HIGH" | "MEDIUM" | "LOW";
@@ -107,29 +107,104 @@ export default function IncidentsPage() {
 
   const now = Date.now();
 
-  return (
-    <div className="max-w-7xl mx-auto py-8 px-4 sm:px-6 space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2">
-            <Siren className="w-6 h-6 text-red-600" />
-            <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Incidentes</h1>
-          </div>
-          <p className="text-sm text-slate-500 mt-1">
-            Ciclo de vida completo con SLA, escalado y trazabilidad de auditoría.
-          </p>
-        </div>
-        <Link
-          href="/incidents/new"
-          className="inline-flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-lg transition shadow-sm w-fit"
-        >
-          <Plus className="w-4 h-4" />
-          Nuevo Incidente
-        </Link>
-      </div>
+  // Métricas calculadas
+  const metrics = {
+    total: total,
+    open: items.filter(i => i.status === 'OPEN').length,
+    inProgress: items.filter(i => i.status === 'IN_PROGRESS').length,
+    critical: items.filter(i => i.priority === 'CRITICAL').length,
+    breached: items.filter(i => i.slaBreached).length,
+  };
 
-      {/* Filtros */}
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 flex flex-wrap items-end gap-3">
+  const metricCards = [
+    {
+      label: "Total Incidentes",
+      value: metrics.total,
+      icon: FileText,
+      color: "indigo" as const,
+      sublabel: `${metrics.open} abiertos`,
+    },
+    {
+      label: "En Progreso",
+      value: metrics.inProgress,
+      icon: Activity,
+      color: "blue" as const,
+      sublabel: "activos ahora",
+    },
+    {
+      label: "Críticos",
+      value: metrics.critical,
+      icon: AlertTriangle,
+      color: "rose" as const,
+      sublabel: metrics.critical > 0 ? "requieren atención" : "ninguno",
+    },
+    {
+      label: "SLA Vencidos",
+      value: metrics.breached,
+      icon: Timer,
+      color: "amber" as const,
+      sublabel: "urgentes",
+    },
+  ];
+
+  return (
+    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white">
+      <div className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8 space-y-8">
+        {/* Header Section */}
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+          <div className="space-y-2">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-red-600 rounded-xl shadow-medium">
+                <Siren className="w-6 h-6 text-white" />
+              </div>
+              <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Incidentes</h1>
+            </div>
+            <p className="text-sm text-slate-600 ml-[52px]">
+              Ciclo de vida completo con SLA, escalado y trazabilidad de auditoría.
+            </p>
+          </div>
+          <Link
+            href="/incidents/new"
+            className="inline-flex items-center gap-2 px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold rounded-xl transition shadow-medium hover:shadow-large w-fit group"
+          >
+            <Plus className="w-4 h-4 group-hover:rotate-90 transition-transform duration-200" />
+            Nuevo Incidente
+          </Link>
+        </div>
+
+        {/* Métricas KPI */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {metricCards.map((metric) => {
+            const Icon = metric.icon;
+            return (
+              <div
+                key={metric.label}
+                className="relative overflow-hidden bg-white rounded-2xl shadow-soft border border-slate-200 p-6 group hover:shadow-medium transition-shadow duration-200"
+              >
+                <div className="absolute top-0 right-0 w-32 h-32 opacity-5 group-hover:opacity-10 transition-opacity">
+                  <div className={`w-full h-full bg-${metric.color}-500 rounded-full blur-3xl`} />
+                </div>
+                <div className="relative">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">{metric.label}</p>
+                      <p className="text-3xl font-bold text-slate-900 mt-2">{metric.value}</p>
+                      {metric.sublabel && (
+                        <p className="text-xs text-slate-500 mt-1">{metric.sublabel}</p>
+                      )}
+                    </div>
+                    <div className={`p-3 rounded-xl bg-${metric.color}-50`}>
+                      <Icon className={`w-5 h-5 text-${metric.color}-600`} />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Filtros */}
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-soft p-6 flex flex-wrap items-end gap-4">
         <div>
           <label className="block text-xs font-medium text-slate-500 mb-1">Estado</label>
           <select
@@ -269,6 +344,7 @@ export default function IncidentsPage() {
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 }
