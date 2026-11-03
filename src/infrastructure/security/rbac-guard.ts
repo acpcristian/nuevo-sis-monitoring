@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { ForbiddenError, UnauthorizedError } from "@/shared/errors/domain-errors";
 import { UserRole } from "@/core/domain/server.types";
 import { AuditService } from "@/core/services/audit.service";
+import { prisma } from "@/infrastructure/db/prisma";
 import { verifySessionToken, SESSION_COOKIE } from "@/infrastructure/security/session";
 
 export interface AuthenticatedUser {
@@ -13,19 +14,36 @@ export interface AuthenticatedUser {
 export class RbacGuard {
   /**
    * Extrae el usuario autenticado de la petición, en este orden de prioridad:
-   * 1. Cookie de sesión firmada (HMAC-SHA256) — flujo de la UI autenticada.
+   * 1. Cookie de sesión firmada (HMAC-SHA256) + validación contra la base de datos:
+   *    la cuenta debe existir, estar activa y la versión de sesión debe coincidir.
+   *    Esto da invalidación inmediata al desactivar, cambiar rol o contraseña.
    * 2. Headers x-user-role/x-user-id o Bearer — fallback para pruebas e
    *    integraciones de agentes; se retirará cuando existan API keys reales.
    */
-  public static extractUser(request: NextRequest): AuthenticatedUser {
+  public static async extractUser(request: NextRequest): Promise<AuthenticatedUser> {
     // 1. Detección de IP del cliente
     const forwardedFor = request.headers.get("x-forwarded-for");
     const ipAddress = forwardedFor ? forwardedFor.split(",")[0]?.trim() : "127.0.0.1";
 
-    // 2. Prioridad: sesión firmada por cookie HttpOnly
+    // 2. Prioridad: sesión firmada por cookie HttpOnly, revalidada contra la BD
     const session = verifySessionToken(request.cookies.get(SESSION_COOKIE)?.value);
     if (session) {
-      return { id: session.uid, role: session.role, ipAddress };
+      const dbUser = await prisma.user.findUnique({
+        where: { id: session.uid },
+        select: { id: true, role: true, isActive: true, sessionVersion: true },
+      });
+
+      if (!dbUser || !dbUser.isActive) {
+        throw new UnauthorizedError("Sesión no válida o cuenta desactivada.");
+      }
+      if (dbUser.sessionVersion !== session.sv) {
+        throw new UnauthorizedError(
+          "Sesión finalizada: tus credenciales cambiaron. Inicia sesión nuevamente."
+        );
+      }
+
+      // El rol se toma de la BD, no del token: un cambio de rol aplica de inmediato.
+      return { id: dbUser.id, role: dbUser.role, ipAddress };
     }
 
     // 3. Fallback (transición): headers de simulación/token
@@ -84,4 +102,3 @@ export class RbacGuard {
     }
   }
 }
-

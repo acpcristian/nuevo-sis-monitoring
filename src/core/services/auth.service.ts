@@ -103,7 +103,7 @@ export class AuthService {
           ipAddress: ipAddress ?? null,
         });
         return {
-          token: createSessionToken(user.id, user.username, user.role),
+          token: createSessionToken(user.id, user.username, user.role, user.sessionVersion),
           user: { id: user.id, username: user.username, displayName: user.displayName, role: user.role },
         };
       }
@@ -126,7 +126,7 @@ export class AuthService {
     });
 
     return {
-      token: createSessionToken(user.id, user.username, user.role),
+      token: createSessionToken(user.id, user.username, user.role, user.sessionVersion),
       user: { id: user.id, username: user.username, displayName: user.displayName, role: user.role },
     };
   }

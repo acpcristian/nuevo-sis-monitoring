@@ -6,7 +6,7 @@ import { DomainError } from "@/shared/errors/domain-errors";
 /** GET /api/v1/metrics/overview — KPIs consolidados para el dashboard (US1/US2/US3). */
 export async function GET(request: NextRequest) {
   try {
-    RbacGuard.extractUser(request);
+    await RbacGuard.extractUser(request);
 
     const now = new Date();
     const h24 = new Date(now.getTime() - 24 * 60 * 60 * 1000);

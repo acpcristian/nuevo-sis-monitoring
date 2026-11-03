@@ -6,7 +6,7 @@ import { NotificationService } from "@/core/services/notification.service";
 
 export async function POST(request: NextRequest) {
   try {
-    const user = RbacGuard.extractUser(request);
+    const user = await RbacGuard.extractUser(request);
 
     // Solo SUPERADMIN puede enviar notificaciones manualmente (Principio IV)
     if (user.role !== "SUPERADMIN") {
@@ -47,7 +47,7 @@ export async function POST(request: NextRequest) {
 /** GET /api/v1/notifications — historial de entregas recientes (entregabilidad US4). */
 export async function GET(request: NextRequest) {
   try {
-    RbacGuard.extractUser(request);
+    await RbacGuard.extractUser(request);
     const { searchParams } = new URL(request.url);
     const take = Math.min(100, Math.max(1, parseInt(searchParams.get("limit") ?? "50")));
     const status = searchParams.get("status");

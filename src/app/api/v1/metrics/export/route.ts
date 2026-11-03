@@ -20,7 +20,7 @@ function toCsv(rows: Record<string, unknown>[]): string {
  */
 export async function GET(request: NextRequest) {
   try {
-    const user: AuthenticatedUser = RbacGuard.extractUser(request);
+    const user: AuthenticatedUser = await RbacGuard.extractUser(request);
     const { searchParams } = new URL(request.url);
     const dataset = searchParams.get("dataset") ?? "incidents";
     const format = searchParams.get("format") ?? "json";

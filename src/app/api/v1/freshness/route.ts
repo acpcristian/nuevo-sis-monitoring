@@ -5,7 +5,7 @@ import { DomainError } from "@/shared/errors/domain-errors";
 
 export async function GET(request: NextRequest) {
   try {
-    const user = RbacGuard.extractUser(request);
+    const user = await RbacGuard.extractUser(request);
     const { searchParams } = new URL(request.url);
 
     const result = await FreshnessService.listFreshnessStates({

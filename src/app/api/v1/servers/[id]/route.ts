@@ -13,7 +13,7 @@ export async function GET(
   context: { params: Promise<{ id: string }> }
 ) {
   try {
-    const user = RbacGuard.extractUser(request);
+    const user = await RbacGuard.extractUser(request);
     const { id } = await context.params;
 
     const server = await ServerQueryService.getServerById(id);
@@ -43,7 +43,7 @@ export async function PATCH(
   context: { params: Promise<{ id: string }> }
 ) {
   try {
-    const user = RbacGuard.extractUser(request);
+    const user = await RbacGuard.extractUser(request);
     const { id } = await context.params;
     await RbacGuard.assertSuperAdmin(user, "UPDATE_SERVER", id);
 
@@ -128,7 +128,7 @@ export async function DELETE(
   context: { params: Promise<{ id: string }> }
 ) {
   try {
-    const user = RbacGuard.extractUser(request);
+    const user = await RbacGuard.extractUser(request);
     const { id } = await context.params;
     await RbacGuard.assertSuperAdmin(user, "RETIRE_SERVER", id);
 

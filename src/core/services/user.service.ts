@@ -158,6 +158,11 @@ export class UserService {
       }
     }
 
+    // Cambiar rol o estado invalida de inmediato las sesiones abiertas del usuario.
+    const invalidatesSessions =
+      (input.role !== undefined && input.role !== existing.role) ||
+      (input.isActive !== undefined && input.isActive !== existing.isActive);
+
     const updated = await prisma.user.update({
       where: { id },
       data: {
@@ -166,6 +171,7 @@ export class UserService {
           : {}),
         ...(input.role !== undefined ? { role: input.role } : {}),
         ...(input.isActive !== undefined ? { isActive: input.isActive } : {}),
+        ...(invalidatesSessions ? { sessionVersion: { increment: 1 } } : {}),
       },
       select: USER_SELECT,
     });
@@ -203,7 +209,10 @@ export class UserService {
     if (!existing) throw new NotFoundError("Usuario");
 
     const passwordHash = await hashPassword(newPassword);
-    await prisma.user.update({ where: { id }, data: { passwordHash } });
+    await prisma.user.update({
+      where: { id },
+      data: { passwordHash, sessionVersion: { increment: 1 } },
+    });
 
     await AuditService.recordEvent({
       userId: actor.id,
@@ -219,7 +228,7 @@ export class UserService {
     currentPassword: string,
     newPassword: string,
     actor: ActorContext
-  ): Promise<void> {
+  ): Promise<{ sessionVersion: number; username: string; role: UserRole }> {
     const existing = await prisma.user.findUnique({ where: { id } });
     if (!existing) throw new NotFoundError("Usuario");
 
@@ -234,7 +243,11 @@ export class UserService {
     }
 
     const passwordHash = await hashPassword(newPassword);
-    await prisma.user.update({ where: { id }, data: { passwordHash } });
+    const updated = await prisma.user.update({
+      where: { id },
+      data: { passwordHash, sessionVersion: { increment: 1 } },
+      select: { sessionVersion: true, username: true, role: true },
+    });
 
     await AuditService.recordEvent({
       userId: actor.id,
@@ -242,5 +255,7 @@ export class UserService {
       detailsDiff: { targetUserId: existing.id, username: existing.username },
       ipAddress: actor.ipAddress ?? null,
     });
+
+    return updated;
   }
 }

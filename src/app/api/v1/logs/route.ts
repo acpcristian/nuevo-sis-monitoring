@@ -7,7 +7,7 @@ import { DomainError } from "@/shared/errors/domain-errors";
 
 export async function GET(request: NextRequest) {
   try {
-    const user = RbacGuard.extractUser(request);
+    const user = await RbacGuard.extractUser(request);
     const { searchParams } = new URL(request.url);
 
     const filterInput = LogListFilterSchema.parse({
@@ -59,7 +59,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const user = RbacGuard.extractUser(request);
+    const user = await RbacGuard.extractUser(request);
 
     // Ingesta de logs: SUPERADMIN o agentes de recolección autorizados
     if (user.role !== "SUPERADMIN") {

@@ -6,7 +6,7 @@ import { DomainError } from "@/shared/errors/domain-errors";
 /** GET /api/v1/channels — lista de canales SIN secretos (configSummary) (Principio III). */
 export async function GET(request: NextRequest) {
   try {
-    RbacGuard.extractUser(request);
+    await RbacGuard.extractUser(request);
     const channels = await NotificationService.listChannels();
     return NextResponse.json({ items: channels, total: channels.length });
   } catch (error: unknown) {
@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
 /** POST /api/v1/channels — crea canal con configuración cifrada AES-256-GCM (solo SUPERADMIN). */
 export async function POST(request: NextRequest) {
   try {
-    const user = RbacGuard.extractUser(request);
+    const user = await RbacGuard.extractUser(request);
     if (user.role !== "SUPERADMIN") {
       return NextResponse.json(
         { error_code: "FORBIDDEN_ACTION", message: "Solo SUPERADMIN puede administrar canales de notificación." },

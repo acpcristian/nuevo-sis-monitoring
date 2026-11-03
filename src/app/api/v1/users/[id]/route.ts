@@ -32,7 +32,7 @@ export async function GET(
   context: { params: Promise<{ id: string }> }
 ) {
   try {
-    const actor = RbacGuard.extractUser(request);
+    const actor = await RbacGuard.extractUser(request);
     await RbacGuard.assertSuperAdmin(actor, "GET_USER");
 
     const { id } = await context.params;
@@ -49,7 +49,7 @@ export async function PATCH(
   context: { params: Promise<{ id: string }> }
 ) {
   try {
-    const actor = RbacGuard.extractUser(request);
+    const actor = await RbacGuard.extractUser(request);
     await RbacGuard.assertSuperAdmin(actor, "UPDATE_USER");
 
     const { id } = await context.params;
@@ -69,7 +69,7 @@ export async function POST(
   context: { params: Promise<{ id: string }> }
 ) {
   try {
-    const actor = RbacGuard.extractUser(request);
+    const actor = await RbacGuard.extractUser(request);
     await RbacGuard.assertSuperAdmin(actor, "RESET_USER_PASSWORD");
 
     const { id } = await context.params;

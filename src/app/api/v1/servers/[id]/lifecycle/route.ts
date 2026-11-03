@@ -9,7 +9,7 @@ export async function PATCH(
   context: { params: Promise<{ id: string }> }
 ) {
   try {
-    const user = RbacGuard.extractUser(request);
+    const user = await RbacGuard.extractUser(request);
     const { id } = await context.params;
     await RbacGuard.assertSuperAdmin(user, "CHANGE_LIFECYCLE", id);
 

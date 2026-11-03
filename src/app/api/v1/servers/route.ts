@@ -9,7 +9,7 @@ import { Environment, OsType, HealthStatus, LifecycleState } from "@prisma/clien
 
 export async function GET(request: NextRequest) {
   try {
-    const user = RbacGuard.extractUser(request);
+    const user = await RbacGuard.extractUser(request);
     const { searchParams } = new URL(request.url);
 
     const environment = searchParams.get("environment") as Environment | undefined;
@@ -57,7 +57,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const user = RbacGuard.extractUser(request);
+    const user = await RbacGuard.extractUser(request);
     await RbacGuard.assertSuperAdmin(user, "CREATE_SERVER");
 
     const body = await request.json();

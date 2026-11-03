@@ -4,14 +4,15 @@
 > de credenciales, Definición de Hecho REFORZADA, Modo Objetivo / Loop SDD) son el
 > núcleo evergreen: consérvalas.
 
-## Active feature: 007-gestion-usuarios
+## Active feature: 008-auditoria-sesiones
 
-Spec/plan/tasks: [specs/007-gestion-usuarios/spec.md](specs/007-gestion-usuarios/spec.md).
-Alta y administración de usuarios (SUPERADMIN/OBSERVADOR), política de contraseñas,
-reset administrativo, cambio propio de contraseña, protección del último SUPERADMIN activo,
-auditoría de cada mutación y pantalla `/users` con «Mi contraseña» en la navegación global.
+Spec/plan/tasks: [specs/008-auditoria-sesiones/spec.md](specs/008-auditoria-sesiones/spec.md).
+Auditoría visible en `/audit` (filtros, paginación, detalle sanitizado) e invalidación
+inmediata de sesiones mediante `sessionVersion` revalidada contra la BD en cada petición.
 
 ### Fases previas completadas
+- **007-gestion-usuarios** — alta/edición de usuarios, roles, reset y cambio de contraseña,
+  protección del último SUPERADMIN activo; UI `/users` y modal «Mi contraseña».
 - **006-automatizacion** — playbooks con acciones seguras y mutantes bloqueadas hasta
   aprobación humana; UI `/automation` con constructor de pasos e historial.
 - **002-log-analysis** — ingesta/clasificación de logs, alertas, diagnósticos (90/90 tests).

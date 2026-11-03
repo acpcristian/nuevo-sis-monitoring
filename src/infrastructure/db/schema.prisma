@@ -358,6 +358,8 @@ model User {
   role         UserRole
   passwordHash String   @map("password_hash")
   isActive     Boolean  @default(true) @map("is_active")
+  /// Versión de sesión: se incrementa al cambiar contraseña, rol o estado para invalidar tokens emitidos.
+  sessionVersion Int    @default(0) @map("session_version")
   lastLoginAt  DateTime? @map("last_login_at")
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")

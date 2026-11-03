@@ -9,6 +9,8 @@ export interface SessionPayload {
   uid: string;
   username: string;
   role: UserRole;
+  /** Versión de sesión del usuario al momento de emitir el token. */
+  sv: number;
   exp: number; // epoch seconds
 }
 
@@ -27,12 +29,14 @@ export function createSessionToken(
   uid: string,
   username: string,
   role: UserRole,
+  sessionVersion: number,
   now = Date.now()
 ): string {
   const payload: SessionPayload = {
     uid,
     username,
     role,
+    sv: sessionVersion,
     exp: Math.floor(now / 1000) + SESSION_TTL_SECONDS,
   };
   const body = Buffer.from(JSON.stringify(payload)).toString("base64url");
@@ -55,6 +59,8 @@ export function verifySessionToken(token: string | undefined | null): SessionPay
   try {
     const payload = JSON.parse(Buffer.from(body, "base64url").toString("utf8")) as SessionPayload;
     if (!payload?.uid || !payload?.role || typeof payload.exp !== "number") return null;
+    // Tokens anteriores a la versión de sesión (sv) se consideran inválidos.
+    if (typeof payload.sv !== "number") return null;
     if (payload.exp * 1000 < Date.now()) return null;
     return payload;
   } catch {

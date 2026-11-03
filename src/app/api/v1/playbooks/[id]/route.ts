@@ -5,7 +5,7 @@ import { DomainError } from "@/shared/errors/domain-errors";
 
 export async function GET(request: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
-    RbacGuard.extractUser(request);
+    await RbacGuard.extractUser(request);
     const { id } = await context.params;
     const playbook = await PlaybookService.getPlaybook(id);
     return NextResponse.json(playbook);
@@ -20,7 +20,7 @@ export async function GET(request: NextRequest, context: { params: Promise<{ id:
 
 export async function PATCH(request: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
-    const user = RbacGuard.extractUser(request);
+    const user = await RbacGuard.extractUser(request);
     const { id } = await context.params;
 
     if (user.role !== "SUPERADMIN") {
@@ -51,7 +51,7 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ i
 
 export async function DELETE(request: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
-    const user = RbacGuard.extractUser(request);
+    const user = await RbacGuard.extractUser(request);
     const { id } = await context.params;
 
     if (user.role !== "SUPERADMIN") {
@@ -75,7 +75,7 @@ export async function DELETE(request: NextRequest, context: { params: Promise<{ 
 /** POST /api/v1/playbooks/[id] — { action: "execute" } (solo SUPERADMIN, playbook activo). */
 export async function POST(request: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
-    const user = RbacGuard.extractUser(request);
+    const user = await RbacGuard.extractUser(request);
     const { id } = await context.params;
 
     if (user.role !== "SUPERADMIN") {

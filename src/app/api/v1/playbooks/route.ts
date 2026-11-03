@@ -5,7 +5,7 @@ import { DomainError } from "@/shared/errors/domain-errors";
 
 export async function GET(request: NextRequest) {
   try {
-    RbacGuard.extractUser(request);
+    await RbacGuard.extractUser(request);
     const result = await PlaybookService.listPlaybooks();
     return NextResponse.json(result);
   } catch (error: unknown) {
@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const user = RbacGuard.extractUser(request);
+    const user = await RbacGuard.extractUser(request);
     if (user.role !== "SUPERADMIN") {
       return NextResponse.json(
         { error_code: "FORBIDDEN_ACTION", message: "Solo SUPERADMIN puede crear playbooks." },

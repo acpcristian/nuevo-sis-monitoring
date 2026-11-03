@@ -1,55 +1,33 @@
 import { prisma } from "@/infrastructure/db/prisma";
 import type { Prisma } from "@prisma/client";
+import type { AuditAction } from "@/core/domain/audit-actions";
 
 export interface AuditEventParams {
   userId: string;
-  action:
-    | "SERVER_CREATED"
-    | "METADATA_UPDATED"
-    | "STATUS_CHANGED"
-    | "SERVER_RETIRED"
-    | "UNAUTHORIZED_ATTEMPT"
-    | "LOG_INGESTED"
-    | "DIAGNOSIS_CREATED"
-    | "LOG_ALERT_CREATED"
-    | "LOG_ALERT_MERGED"
-    | "LOG_ALERT_ACKNOWLEDGED"
-    | "LOG_ALERT_RESOLVED"
-    // — 003 Incident Management —
-    | "INCIDENT_CREATED"
-    | "INCIDENT_ASSIGNED"
-    | "INCIDENT_ESCALATED"
-    | "INCIDENT_RESOLVED"
-    | "INCIDENT_CLOSED"
-    | "INCIDENT_STATUS_CHANGED"
-    // — 004 Notificaciones —
-    | "CHANNEL_CREATED"
-    | "CHANNEL_UPDATED"
-    | "CHANNEL_DELETED"
-    | "CHANNEL_TESTED"
-    | "NOTIFICATION_SENT"
-    | "NOTIFICATION_FAILED"
-    | "NOTIFICATION_RETRY_SCHEDULED"
-    | "NOTIFICATION_RETRY_PROCESSED"
-    // — 005 Dashboards —
-    | "REPORT_EXPORTED"
-    // — 006 Automatización —
-    | "PLAYBOOK_CREATED"
-    | "PLAYBOOK_UPDATED"
-    | "PLAYBOOK_DELETED"
-    | "PLAYBOOK_EXECUTED"
-    | "PLAYBOOK_FAILED"
-    // — Autenticación —
-    | "LOGIN_SUCCESS"
-    | "LOGIN_FAILED"
-    // — 007 Gestión de usuarios —
-    | "USER_CREATED"
-    | "USER_UPDATED"
-    | "USER_PASSWORD_RESET"
-    | "USER_PASSWORD_CHANGED";
+  action: AuditAction;
   targetServerId?: string | null;
   detailsDiff: Record<string, unknown>;
   ipAddress?: string | null;
+}
+
+export interface AuditListFilters {
+  action?: AuditAction;
+  userId?: string;
+  from?: Date;
+  to?: Date;
+  limit?: number;
+  offset?: number;
+}
+
+export interface AuditListItem {
+  id: string;
+  timestamp: string;
+  userId: string;
+  actorUsername: string | null;
+  action: string;
+  targetServerId: string | null;
+  detailsDiff: unknown;
+  ipAddress: string | null;
 }
 
 export class AuditService {
@@ -99,6 +77,66 @@ export class AuditService {
         ipAddress: params.ipAddress ?? undefined,
       },
     });
+  }
+
+  /**
+   * Consulta paginada del registro de auditoría (solo lectura, solo SUPERADMIN).
+   * `detailsDiff` ya está sanitizado en origen: nunca contiene secretos.
+   */
+  public static async list(filters: AuditListFilters): Promise<{
+    items: AuditListItem[];
+    total: number;
+    limit: number;
+    offset: number;
+  }> {
+    const limit = Math.min(Math.max(filters.limit ?? 50, 1), 200);
+    const offset = Math.max(filters.offset ?? 0, 0);
+
+    const where: Prisma.InventoryAuditLogWhereInput = {};
+    if (filters.action) where.action = filters.action;
+    if (filters.userId) where.userId = filters.userId;
+    if (filters.from || filters.to) {
+      where.timestamp = {
+        ...(filters.from ? { gte: filters.from } : {}),
+        ...(filters.to ? { lte: filters.to } : {}),
+      };
+    }
+
+    const [rows, total] = await Promise.all([
+      prisma.inventoryAuditLog.findMany({
+        where,
+        orderBy: { timestamp: "desc" },
+        take: limit,
+        skip: offset,
+      }),
+      prisma.inventoryAuditLog.count({ where }),
+    ]);
+
+    const actorIds = [...new Set(rows.map((row) => row.userId))];
+    const actors =
+      actorIds.length > 0
+        ? await prisma.user.findMany({
+            where: { id: { in: actorIds } },
+            select: { id: true, username: true },
+          })
+        : [];
+    const actorNames = new Map(actors.map((actor) => [actor.id, actor.username]));
+
+    return {
+      items: rows.map((row) => ({
+        id: row.id,
+        timestamp: row.timestamp.toISOString(),
+        userId: row.userId,
+        actorUsername: actorNames.get(row.userId) ?? null,
+        action: row.action,
+        targetServerId: row.targetServerId,
+        detailsDiff: row.detailsDiff,
+        ipAddress: row.ipAddress,
+      })),
+      total,
+      limit,
+      offset,
+    };
   }
 }
 

@@ -29,7 +29,7 @@ function toErrorResponse(error: unknown, fallback: string) {
 /** GET /api/v1/users — lista de usuarios (solo SUPERADMIN). */
 export async function GET(request: NextRequest) {
   try {
-    const actor = RbacGuard.extractUser(request);
+    const actor = await RbacGuard.extractUser(request);
     await RbacGuard.assertSuperAdmin(actor, "LIST_USERS");
 
     const users = await UserService.list();
@@ -42,7 +42,7 @@ export async function GET(request: NextRequest) {
 /** POST /api/v1/users — alta de usuario (solo SUPERADMIN). */
 export async function POST(request: NextRequest) {
   try {
-    const actor = RbacGuard.extractUser(request);
+    const actor = await RbacGuard.extractUser(request);
     await RbacGuard.assertSuperAdmin(actor, "CREATE_USER");
 
     const body = await request.json().catch(() => null);

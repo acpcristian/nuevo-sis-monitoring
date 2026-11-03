@@ -9,7 +9,7 @@ export async function GET(
   context: { params: Promise<{ id: string }> }
 ) {
   try {
-    const user = RbacGuard.extractUser(request);
+    const user = await RbacGuard.extractUser(request);
     const { id } = await context.params;
 
     const server = await prisma.server.findUnique({ where: { id } });
@@ -37,7 +37,7 @@ export async function POST(
   context: { params: Promise<{ id: string }> }
 ) {
   try {
-    const user = RbacGuard.extractUser(request);
+    const user = await RbacGuard.extractUser(request);
     await RbacGuard.assertSuperAdmin(user, "CREATE_SERVICE", (await context.params).id);
 
     const { id } = await context.params;
@@ -78,7 +78,7 @@ export async function PUT(
   context: { params: Promise<{ id: string }> }
 ) {
   try {
-    const user = RbacGuard.extractUser(request);
+    const user = await RbacGuard.extractUser(request);
     await RbacGuard.assertSuperAdmin(user, "UPDATE_SERVICE", (await context.params).id);
 
     const { id } = await context.params;
@@ -109,7 +109,7 @@ export async function DELETE(
   context: { params: Promise<{ id: string }> }
 ) {
   try {
-    const user = RbacGuard.extractUser(request);
+    const user = await RbacGuard.extractUser(request);
     await RbacGuard.assertSuperAdmin(user, "DELETE_SERVICE", (await context.params).id);
 
     const { id } = await context.params;
