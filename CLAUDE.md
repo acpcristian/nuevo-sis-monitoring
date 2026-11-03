@@ -4,19 +4,26 @@
 > de credenciales, Definición de Hecho REFORZADA, Modo Objetivo / Loop SDD) son el
 > núcleo evergreen: consérvalas.
 
-## Active feature: 002-log-analysis
+## Active feature: 006-automatizacion
 
-Plan técnico: [specs/002-log-analysis/plan.md](specs/002-log-analysis/plan.md)
-(spec, research, data-model, contracts y quickstart en la misma carpeta).
+Plan técnico: [specs/006-automatizacion/spec.md](specs/006-automatizacion/spec.md)
+(tasks en la misma carpeta). Automatización de respuesta con playbooks: acciones seguras
+ejecutables (CHECK_STATE, WAIT_SECONDS, NOTIFY_TEAM) y acciones mutantes bloqueadas hasta
+aprobación humana (human-in-the-loop, Principio V), con ejecución auditada paso a paso.
 
-Módulo de análisis de logs y diagnóstico estructurado: ingesta y clasificación de registros
-en 10 categorías prioritarias, filtrado multifactorial, diagnósticos asistidos con hechos
-observados y evidencias de soporte, deduplicación de alertas y estados de frescura de datos.
-Cumple con el Principio VII (Análisis de Logs Responsable) y los Principios II, III, IV, VI,
-VIII, XII y XIII de la Constitución.
+### Fases completadas en esta iteración
+- **002-log-analysis** — ingesta/clasificación de logs, alertas, diagnósticos (90/90 tests).
+- **003-incident-management** — ciclo de vida completo con SLA, escalado, round-robin y
+  auditoría append-only; UI `/incidents` (lista, alta, detalle con timeline).
+- **004-notificaciones** — canales EMAIL/SLACK/WEBHOOK/PAGERDUTY con credenciales cifradas,
+  dedup anti-tormenta, reintentos con backoff; UI `/channels`.
+- **005-metricas-dashboards** — KPIs y dashboard `/metrics` con gráficos SVG nativos,
+  export CSV/JSON.
+- **Auth real** — login con scrypt + cookie de sesión HMAC (HttpOnly), RBAC backend,
+  middleware de protección de páginas, navegación global `(dashboard)/layout.tsx`.
+- **001-server-inventory** — inventario fundacional de servidores (Linux y Windows Server).
 
-## Feature previa: 001-server-inventory
-Plan técnico: [specs/001-server-inventory/plan.md](specs/001-server-inventory/plan.md). Módulo fundacional de gestión e inventario de servidores (Linux y Windows Server) — completado.
+Plan técnico 001: [specs/001-server-inventory/plan.md](specs/001-server-inventory/plan.md).
 
 ## Stack
 

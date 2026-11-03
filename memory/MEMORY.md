@@ -7,3 +7,4 @@
 - [spec-005-metricas-dashboards](spec-005-metricas-dashboards.md) — Spec 005 completado con spec.md y plan.md creado
 - [spec-006-automatizacion](spec-006-automatizacion.md) — Spec 006 completado con spec.md y plan.md creado
 - [tasks-updated-002](tasks-updated-002.md) — Tasks 002 actualizadas reflejando implementación real (90/90 tests passing)
+- [sistema-completo-profesional](sistema-completo-profesional.md) — Fases 003–006 + auth real + navegación global completadas; deploy y verificación en Coolify
