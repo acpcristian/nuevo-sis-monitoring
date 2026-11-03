@@ -27,8 +27,17 @@
 - [x] T014 Tests de dominio de tema (7 casos)
 - [x] T015 Tests del servicio de apariencia (4 casos) — 143/143 en total
 - [x] T016 Gate técnico: `tsc --noEmit` + `vitest run` + `next build` en verde
-- [ ] T017 E2E en vivo: GET/PUT, HTML con tokens, auditoría, OBSERVADOR 403 + alerta,
+- [x] T017 E2E en vivo: GET/PUT, HTML con tokens, auditoría, OBSERVADOR 403 + alerta,
       persistencia tras reinicio y verificación visual claro/oscuro
+  - `GET` sin sesión `401`; `/settings/appearance` `307` a `/login`.
+  - `PUT` Océano claro/12/compacta → HTML `data-theme="light"`, `--primary-600:#0284c7`,
+    `--radius-lg:12px`; `PUT` oscuro → `--surface-1:#111a2e`.
+  - `THEME_UPDATED` con `before`/`after`; OBSERVADOR `403` + `UNAUTHORIZED_ATTEMPT` +
+    `SECURITY_ALERT_SENT` (HIGH).
+  - Tema persistió a través de 4 redeploys; restablecido a Índigo/claro/8/cómoda.
+  - Capturas Playwright: `/servers` y `/settings/appearance` claro/oscuro, `/login` oscuro;
+    los 7 enlaces caben en 1440 y 1280; menús Administración y Usuario operativos.
+  - Evidencia completa en [memory/apariencia.md](../../memory/apariencia.md).
 
 ## Dependencias
 
