@@ -79,6 +79,35 @@ export class AuthService {
 
     const ok = await verifyPassword(password, user.passwordHash);
     if (!ok) {
+      // Break-glass operativo: si la contraseña coincide con SUPERADMIN_PASSWORD del
+      // entorno, se re-sincroniza el hash (rotación determinista tras un despliegue).
+      const env = getEnv();
+      const envUser = env.SUPERADMIN_USER ?? "admin";
+      const envPassword = env.SUPERADMIN_PASSWORD;
+      const isEnvSuperadmin =
+        Boolean(envPassword) &&
+        user.username === envUser &&
+        user.role === "SUPERADMIN" &&
+        password === envPassword;
+
+      if (isEnvSuperadmin) {
+        const newHash = await hashPassword(password);
+        await prisma.user.update({
+          where: { id: user.id },
+          data: { passwordHash: newHash, lastLoginAt: new Date() },
+        });
+        await AuditService.recordEvent({
+          userId: user.id,
+          action: "USER_UPDATED",
+          detailsDiff: { username, reason: "superadmin password resincronizada desde entorno" },
+          ipAddress: ipAddress ?? null,
+        });
+        return {
+          token: createSessionToken(user.id, user.username, user.role),
+          user: { id: user.id, username: user.username, displayName: user.displayName, role: user.role },
+        };
+      }
+
       await AuditService.recordEvent({
         userId: user.id,
         action: "LOGIN_FAILED",
