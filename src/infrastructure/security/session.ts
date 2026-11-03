@@ -1,9 +1,9 @@
 import { createHmac, timingSafeEqual } from "crypto";
 import { getEnv } from "@/shared/env";
 import { UserRole } from "@/core/domain/server.types";
+import { SESSION_COOKIE, SESSION_TTL_SECONDS } from "@/infrastructure/security/session.constants";
 
-export const SESSION_COOKIE = "sis_session";
-export const SESSION_TTL_SECONDS = 8 * 60 * 60; // 8 horas
+export { SESSION_COOKIE, SESSION_TTL_SECONDS };
 
 export interface SessionPayload {
   uid: string;

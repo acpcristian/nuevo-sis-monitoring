@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { SESSION_COOKIE } from "@/infrastructure/security/session";
+import { SESSION_COOKIE } from "@/infrastructure/security/session.constants";
 
 /**
  * Protección de páginas: si no hay cookie de sesión, redirige a /login.
