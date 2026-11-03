@@ -42,7 +42,8 @@
 Cuenta de prueba `observador.prueba` quedó **desactivada** para no dejar credenciales
 conocidas activas; puede reactivarse desde `/users` y asignarle una contraseña nueva.
 
-## Limitación conocida
-La sesión es un token HMAC stateless de 8 h. Desactivar a un usuario impide nuevos logins,
-pero un token ya emitido sigue siendo válido hasta su expiración. Para invalidación inmediata
-se debe rotar `AUTH_SECRET` en Coolify (invalida todas las sesiones) o reducir el TTL.
+## Limitación conocida (resuelta en 008)
+La sesión es un token HMAC stateless de 8 h. **Desde la fase 008**, `sessionVersion` se revalida
+contra la BD en cada petición: desactivar, cambiar el rol o resetear la contraseña revoca las
+sesiones abiertas de inmediato (401). Cambiar la propia contraseña reemite la cookie para no
+expulsar al usuario.

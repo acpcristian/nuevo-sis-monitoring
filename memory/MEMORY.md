@@ -9,3 +9,4 @@
 - [tasks-updated-002](tasks-updated-002.md) — Tasks 002 actualizadas reflejando implementación real (90/90 tests passing)
 - [sistema-completo-profesional](sistema-completo-profesional.md) — Fases 003–006 + auth real + navegación global completadas; deploy y verificación en Coolify
 - [gestion-usuarios](gestion-usuarios.md) — Feature 007: gestion de usuarios, roles, reset/cambio de contrasena, proteccion del ultimo SUPERADMIN y verificacion E2E
+- [auditoria-sesiones](auditoria-sesiones.md) — Feature 008: auditoria visible en /audit e invalidacion inmediata de sesiones con sessionVersion

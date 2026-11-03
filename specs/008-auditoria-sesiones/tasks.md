@@ -24,7 +24,7 @@
 - [x] T014 Tests de token con versión y revalidación de sesión (6 casos)
 - [x] T015 Tests de consulta de auditoría (4 casos) — 118/118 en total
 - [x] T016 Gate técnico: `tsc --noEmit` + `vitest run` + `next build` en verde
-- [ ] T017 E2E en vivo: auditoría con filtros; desactivar usuario → 401; cambio de rol inmediato; cambio propio conserva sesión
+- [x] T017 E2E en vivo: auditoría con filtros; desactivar usuario → 401; cambio de rol inmediato; cambio propio conserva sesión
 
 ## Dependencias
 
