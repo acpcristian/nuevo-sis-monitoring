@@ -557,3 +557,18 @@ model PlaybookExecution {
   @@map("playbook_executions")
 }
 
+
+/// Configuración global de apariencia (fila única con id "global").
+model SystemSetting {
+  id           String   @id @default("global")
+  preset       String   @default("indigo")
+  primaryColor String   @default("#4f46e5") @map("primary_color")
+  mode         String   @default("light")
+  radius       Int      @default(8)
+  density      String   @default("comfortable")
+  updatedBy    String?  @map("updated_by")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@map("system_settings")
+}

@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
   Server, ScrollText, ShieldAlert, Siren, Bell, BarChart3, Workflow, LogOut, Activity,
-  Users, KeyRound, X, Loader2, CheckCircle2, AlertCircle, History,
+  Users, KeyRound, X, Loader2, CheckCircle2, AlertCircle, History, Palette,
 } from "lucide-react";
 
 export interface NavUser {
@@ -26,6 +26,7 @@ const LINKS = [
 const ADMIN_LINKS = [
   { href: "/users", label: "Usuarios", icon: Users },
   { href: "/audit", label: "Auditoría", icon: History },
+  { href: "/settings/appearance", label: "Apariencia", icon: Palette },
 ];
 
 function PasswordModal({ onClose }: { onClose: () => void }) {

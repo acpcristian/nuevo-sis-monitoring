@@ -36,6 +36,8 @@ export const AUDIT_ACTIONS = [
   "REPORT_EXPORTED",
   // Seguridad
   "SECURITY_ALERT_SENT",
+  // Apariencia
+  "THEME_UPDATED",
   // Automatización
   "PLAYBOOK_CREATED",
   "PLAYBOOK_UPDATED",
@@ -126,5 +128,9 @@ export const AUDIT_ACTION_GROUPS: AuditActionGroup[] = [
       { value: "PLAYBOOK_EXECUTED", label: "Playbook ejecutado" },
       { value: "PLAYBOOK_FAILED", label: "Playbook fallido" },
     ],
+  },
+  {
+    label: "Apariencia",
+    actions: [{ value: "THEME_UPDATED", label: "Apariencia actualizada" }],
   },
 ];

@@ -21,3 +21,190 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+
+/* ==========================================================================
+   010 — Apariencia: los tokens inyectados en <html> remapean la paleta
+   existente (indigo/slate/zinc) sin reescribir cada pantalla.
+   ========================================================================== */
+
+html {
+  background-color: var(--surface-0);
+}
+
+body {
+  background-color: var(--surface-0);
+  color: var(--text-1);
+}
+
+html[data-density="compact"] {
+  font-size: 15px;
+}
+
+/* Radios configurables */
+.rounded-md { border-radius: var(--radius-md); }
+.rounded-lg { border-radius: var(--radius-lg); }
+.rounded-xl { border-radius: var(--radius-xl); }
+.rounded-2xl { border-radius: var(--radius-2xl); }
+
+/* —— Color principal (indigo) —— */
+:root .bg-indigo-50 { background-color: var(--primary-50); }
+:root .bg-indigo-50\/70 { background-color: var(--primary-50); background-color: color-mix(in srgb, var(--primary-50) 70%, transparent); }
+:root .bg-indigo-100 { background-color: var(--primary-100); }
+:root .bg-indigo-200\/60 { background-color: var(--primary-200); background-color: color-mix(in srgb, var(--primary-200) 60%, transparent); }
+:root .bg-indigo-500 { background-color: var(--primary-500); }
+:root .bg-indigo-600 { background-color: var(--primary-600); }
+:root .bg-indigo-500.text-white,
+:root .bg-indigo-600.text-white,
+:root .bg-indigo-700.text-white { color: var(--primary-contrast); }
+:root .text-indigo-500 { color: var(--primary-500); }
+:root .text-indigo-600 { color: var(--primary-600); }
+:root .text-indigo-700 { color: var(--primary-700); }
+:root .text-indigo-800 { color: var(--primary-800); }
+:root .text-indigo-900 { color: var(--primary-900); }
+:root .border-indigo-100 { border-color: var(--primary-100); }
+:root .border-indigo-200 { border-color: var(--primary-200); }
+:root .border-indigo-500 { border-color: var(--primary-600); }
+:root .ring-indigo-100 { --tw-ring-color: var(--primary-100); }
+:root .ring-indigo-500 { --tw-ring-color: var(--primary-600); }
+:root .focus\:ring-indigo-500:focus { --tw-ring-color: var(--primary-600); }
+:root .focus\:border-indigo-500:focus { border-color: var(--primary-600); }
+:root .hover\:bg-indigo-50:hover { background-color: var(--primary-50); }
+:root .hover\:bg-indigo-100:hover { background-color: var(--primary-100); }
+:root .hover\:bg-indigo-700:hover { background-color: var(--primary-700); }
+:root .hover\:text-indigo-600:hover { color: var(--primary-600); }
+:root .hover\:text-indigo-700:hover { color: var(--primary-700); }
+:root .hover\:text-indigo-800:hover { color: var(--primary-800); }
+:root .fill-indigo-500\/80 { fill: var(--primary-600); fill: color-mix(in srgb, var(--primary-600) 80%, transparent); }
+:root .hover\:fill-indigo-600:hover { fill: var(--primary-600); }
+
+/* —— Superficies neutras (slate + zinc + white) —— */
+:root .bg-white { background-color: var(--surface-1); }
+:root .bg-white\/95 { background-color: var(--surface-1); background-color: color-mix(in srgb, var(--surface-1) 95%, transparent); }
+:root .hover\:bg-white:hover { background-color: var(--surface-1); }
+:root .bg-slate-50 { background-color: var(--surface-2); }
+:root .bg-slate-50\/50 { background-color: var(--surface-2); background-color: color-mix(in srgb, var(--surface-2) 50%, transparent); }
+:root .bg-slate-50\/60 { background-color: var(--surface-2); background-color: color-mix(in srgb, var(--surface-2) 60%, transparent); }
+:root .bg-slate-50\/70 { background-color: var(--surface-2); background-color: color-mix(in srgb, var(--surface-2) 70%, transparent); }
+:root .bg-slate-100 { background-color: var(--surface-3); }
+:root .bg-slate-100\/70 { background-color: var(--surface-3); background-color: color-mix(in srgb, var(--surface-3) 70%, transparent); }
+:root .bg-slate-200 { background-color: var(--surface-4); }
+:root .bg-slate-400 { background-color: var(--neutral-400); }
+:root .bg-slate-900 { background-color: var(--inverse-surface); }
+:root .bg-slate-900\/40 { background-color: var(--inverse-surface); background-color: color-mix(in srgb, var(--inverse-surface) 40%, transparent); }
+:root .bg-zinc-50 { background-color: var(--surface-2); }
+:root .bg-zinc-100 { background-color: var(--surface-3); }
+:root .hover\:bg-slate-50:hover,
+:root .hover\:bg-slate-50\/50:hover,
+:root .hover\:bg-slate-50\/60:hover,
+:root .hover\:bg-slate-50\/70:hover,
+:root .hover\:bg-slate-50\/80:hover { background-color: var(--surface-2); }
+:root .hover\:bg-slate-100:hover { background-color: var(--surface-3); }
+:root .hover\:bg-slate-200:hover { background-color: var(--surface-4); }
+:root .hover\:bg-slate-800:hover { background-color: var(--surface-4); }
+
+/* —— Texto —— */
+:root .text-slate-900,
+:root .text-slate-800 { color: var(--text-1); }
+:root .text-slate-700,
+:root .text-slate-600 { color: var(--text-2); }
+:root .text-slate-500,
+:root .text-slate-400 { color: var(--text-3); }
+:root .text-slate-300 { color: var(--text-4); }
+:root .text-slate-100 { color: #f1f5f9; }
+:root .text-zinc-600,
+:root .text-zinc-700 { color: var(--text-2); }
+:root .hover\:text-slate-900:hover,
+:root .hover\:text-slate-800:hover { color: var(--text-1); }
+:root .hover\:text-slate-700:hover,
+:root .hover\:text-slate-600:hover { color: var(--text-2); }
+
+/* —— Bordes y separadores —— */
+:root .border-slate-50,
+:root .border-slate-100 { border-color: var(--border-1); }
+:root .border-slate-200 { border-color: var(--border-2); }
+:root .border-slate-300 { border-color: var(--border-3); }
+:root .border-zinc-200 { border-color: var(--border-2); }
+:root .border-zinc-300 { border-color: var(--border-3); }
+:root .hover\:border-slate-300:hover { border-color: var(--border-3); }
+:root .ring-slate-200 { --tw-ring-color: var(--border-2); }
+:root .divide-slate-50 > :not([hidden]) ~ :not([hidden]),
+:root .divide-slate-100 > :not([hidden]) ~ :not([hidden]) { border-color: var(--border-1); }
+
+/* —— Modo oscuro: matices del color principal —— */
+[data-theme="dark"] .text-indigo-800 { color: var(--primary-300); }
+[data-theme="dark"] .text-indigo-900 { color: var(--primary-200); }
+[data-theme="dark"] .bg-indigo-50 { background-color: color-mix(in srgb, var(--primary-600) 16%, transparent); }
+[data-theme="dark"] .bg-indigo-50\/70 { background-color: color-mix(in srgb, var(--primary-600) 12%, transparent); }
+[data-theme="dark"] .bg-indigo-100 { background-color: color-mix(in srgb, var(--primary-600) 24%, transparent); }
+[data-theme="dark"] .hover\:bg-indigo-50:hover { background-color: color-mix(in srgb, var(--primary-600) 22%, transparent); }
+[data-theme="dark"] .hover\:bg-indigo-100:hover { background-color: color-mix(in srgb, var(--primary-600) 30%, transparent); }
+[data-theme="dark"] .border-indigo-100 { border-color: color-mix(in srgb, var(--primary-600) 30%, transparent); }
+[data-theme="dark"] .border-indigo-200 { border-color: color-mix(in srgb, var(--primary-600) 40%, transparent); }
+[data-theme="dark"] .ring-indigo-100 { --tw-ring-color: color-mix(in srgb, var(--primary-600) 30%, transparent); }
+
+/* —— Modo oscuro: colores semánticos —— */
+[data-theme="dark"] .bg-emerald-50 { background-color: rgba(16, 185, 129, 0.12); }
+[data-theme="dark"] .bg-emerald-100 { background-color: rgba(16, 185, 129, 0.2); }
+[data-theme="dark"] .hover\:bg-emerald-50:hover { background-color: rgba(16, 185, 129, 0.18); }
+[data-theme="dark"] .hover\:bg-emerald-100:hover { background-color: rgba(16, 185, 129, 0.26); }
+[data-theme="dark"] .border-emerald-100 { border-color: rgba(16, 185, 129, 0.3); }
+[data-theme="dark"] .border-emerald-200 { border-color: rgba(16, 185, 129, 0.38); }
+[data-theme="dark"] .ring-emerald-100 { --tw-ring-color: rgba(16, 185, 129, 0.25); }
+[data-theme="dark"] .text-emerald-600 { color: #34d399; }
+[data-theme="dark"] .text-emerald-700 { color: #6ee7b7; }
+[data-theme="dark"] .hover\:text-emerald-700:hover { color: #a7f3d0; }
+[data-theme="dark"] .hover\:text-emerald-900:hover { color: #d1fae5; }
+
+[data-theme="dark"] .bg-rose-50 { background-color: rgba(244, 63, 94, 0.12); }
+[data-theme="dark"] .bg-rose-100 { background-color: rgba(244, 63, 94, 0.2); }
+[data-theme="dark"] .hover\:bg-rose-50:hover { background-color: rgba(244, 63, 94, 0.18); }
+[data-theme="dark"] .hover\:bg-rose-100:hover { background-color: rgba(244, 63, 94, 0.26); }
+[data-theme="dark"] .border-rose-200 { border-color: rgba(244, 63, 94, 0.38); }
+[data-theme="dark"] .ring-rose-100 { --tw-ring-color: rgba(244, 63, 94, 0.25); }
+[data-theme="dark"] .text-rose-500 { color: #fb7185; }
+[data-theme="dark"] .text-rose-600 { color: #fda4af; }
+[data-theme="dark"] .text-rose-700 { color: #fecdd3; }
+[data-theme="dark"] .text-rose-800 { color: #ffe4e6; }
+[data-theme="dark"] .hover\:text-rose-700:hover { color: #ffe4e6; }
+
+[data-theme="dark"] .bg-red-50 { background-color: rgba(239, 68, 68, 0.12); }
+[data-theme="dark"] .bg-red-100 { background-color: rgba(239, 68, 68, 0.2); }
+[data-theme="dark"] .hover\:bg-red-50:hover { background-color: rgba(239, 68, 68, 0.18); }
+[data-theme="dark"] .hover\:bg-red-100:hover { background-color: rgba(239, 68, 68, 0.26); }
+[data-theme="dark"] .border-red-100 { border-color: rgba(239, 68, 68, 0.3); }
+[data-theme="dark"] .border-red-200 { border-color: rgba(239, 68, 68, 0.38); }
+[data-theme="dark"] .text-red-600 { color: #f87171; }
+[data-theme="dark"] .text-red-700 { color: #fca5a5; }
+[data-theme="dark"] .hover\:text-red-600:hover { color: #fca5a5; }
+[data-theme="dark"] .hover\:text-red-700:hover { color: #fecaca; }
+[data-theme="dark"] .hover\:text-red-900:hover { color: #fee2e2; }
+
+[data-theme="dark"] .bg-amber-50 { background-color: rgba(245, 158, 11, 0.12); }
+[data-theme="dark"] .bg-amber-100 { background-color: rgba(245, 158, 11, 0.2); }
+[data-theme="dark"] .hover\:bg-amber-50:hover { background-color: rgba(245, 158, 11, 0.18); }
+[data-theme="dark"] .hover\:bg-amber-100:hover { background-color: rgba(245, 158, 11, 0.26); }
+[data-theme="dark"] .border-amber-200 { border-color: rgba(245, 158, 11, 0.38); }
+[data-theme="dark"] .ring-amber-100 { --tw-ring-color: rgba(245, 158, 11, 0.25); }
+[data-theme="dark"] .text-amber-600 { color: #fbbf24; }
+[data-theme="dark"] .text-amber-700 { color: #fcd34d; }
+[data-theme="dark"] .text-amber-800 { color: #fde68a; }
+[data-theme="dark"] .hover\:text-amber-700:hover { color: #fde68a; }
+[data-theme="dark"] .hover\:text-amber-900:hover { color: #fef3c7; }
+
+[data-theme="dark"] .bg-sky-50 { background-color: rgba(14, 165, 233, 0.12); }
+[data-theme="dark"] .ring-sky-100 { --tw-ring-color: rgba(14, 165, 233, 0.25); }
+[data-theme="dark"] .text-sky-700 { color: #7dd3fc; }
+
+[data-theme="dark"] .bg-violet-50 { background-color: rgba(139, 92, 246, 0.12); }
+[data-theme="dark"] .ring-violet-100 { --tw-ring-color: rgba(139, 92, 246, 0.25); }
+[data-theme="dark"] .text-violet-700 { color: #c4b5fd; }
+
+/* —— Modo oscuro: degradados de la pantalla de acceso —— */
+[data-theme="dark"] .from-slate-50 {
+  --tw-gradient-from: var(--surface-2) var(--tw-gradient-from-position);
+  --tw-gradient-to: rgb(15 23 42 / 0) var(--tw-gradient-to-position);
+  --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to);
+}
+[data-theme="dark"] .to-white {
+  --tw-gradient-to: var(--surface-1) var(--tw-gradient-to-position);
+}
