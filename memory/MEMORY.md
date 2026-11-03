@@ -10,3 +10,4 @@
 - [sistema-completo-profesional](sistema-completo-profesional.md) — Fases 003–006 + auth real + navegación global completadas; deploy y verificación en Coolify
 - [gestion-usuarios](gestion-usuarios.md) — Feature 007: gestion de usuarios, roles, reset/cambio de contrasena, proteccion del ultimo SUPERADMIN y verificacion E2E
 - [auditoria-sesiones](auditoria-sesiones.md) — Feature 008: auditoria visible en /audit e invalidacion inmediata de sesiones con sessionVersion
+- [exportacion-auditoria-alertas](exportacion-auditoria-alertas.md) — Feature 009: export CSV/JSON de auditoria y alertas de seguridad por intentos no autorizados y logins fallidos repetidos

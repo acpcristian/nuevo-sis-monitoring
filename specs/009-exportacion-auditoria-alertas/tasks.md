@@ -24,7 +24,7 @@
 - [x] T014 Tests de exportación de auditoría (4 casos)
 - [x] T015 Tests de alertas de seguridad (7 casos) — 132/132 en total
 - [x] T016 Gate técnico: `tsc --noEmit` + `vitest run` + `next build` en verde
-- [ ] T017 E2E en vivo: CSV/JSON descargados, export auditado, OBSERVADOR 403 + alerta,
+- [x] T017 E2E en vivo: CSV/JSON descargados, export auditado, OBSERVADOR 403 + alerta,
       5 logins fallidos → `SECURITY_ALERT_SENT`
 
 ## Dependencias
