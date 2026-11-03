@@ -4,14 +4,16 @@
 > de credenciales, Definición de Hecho REFORZADA, Modo Objetivo / Loop SDD) son el
 > núcleo evergreen: consérvalas.
 
-## Active feature: 006-automatizacion
+## Active feature: 007-gestion-usuarios
 
-Plan técnico: [specs/006-automatizacion/spec.md](specs/006-automatizacion/spec.md)
-(tasks en la misma carpeta). Automatización de respuesta con playbooks: acciones seguras
-ejecutables (CHECK_STATE, WAIT_SECONDS, NOTIFY_TEAM) y acciones mutantes bloqueadas hasta
-aprobación humana (human-in-the-loop, Principio V), con ejecución auditada paso a paso.
+Spec/plan/tasks: [specs/007-gestion-usuarios/spec.md](specs/007-gestion-usuarios/spec.md).
+Alta y administración de usuarios (SUPERADMIN/OBSERVADOR), política de contraseñas,
+reset administrativo, cambio propio de contraseña, protección del último SUPERADMIN activo,
+auditoría de cada mutación y pantalla `/users` con «Mi contraseña» en la navegación global.
 
-### Fases completadas en esta iteración
+### Fases previas completadas
+- **006-automatizacion** — playbooks con acciones seguras y mutantes bloqueadas hasta
+  aprobación humana; UI `/automation` con constructor de pasos e historial.
 - **002-log-analysis** — ingesta/clasificación de logs, alertas, diagnósticos (90/90 tests).
 - **003-incident-management** — ciclo de vida completo con SLA, escalado, round-robin y
   auditoría append-only; UI `/incidents` (lista, alta, detalle con timeline).

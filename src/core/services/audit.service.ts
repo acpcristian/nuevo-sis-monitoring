@@ -42,8 +42,11 @@ export interface AuditEventParams {
     // — Autenticación —
     | "LOGIN_SUCCESS"
     | "LOGIN_FAILED"
+    // — 007 Gestión de usuarios —
     | "USER_CREATED"
-    | "USER_UPDATED";
+    | "USER_UPDATED"
+    | "USER_PASSWORD_RESET"
+    | "USER_PASSWORD_CHANGED";
   targetServerId?: string | null;
   detailsDiff: Record<string, unknown>;
   ipAddress?: string | null;
