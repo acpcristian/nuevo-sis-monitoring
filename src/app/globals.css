@@ -23,7 +23,7 @@ body {
 
 
 /* ==========================================================================
-   010 — Apariencia: los tokens inyectados en <html> remapean la paleta
+   010 â€” Apariencia: los tokens inyectados en <html> remapean la paleta
    existente (indigo/slate/zinc) sin reescribir cada pantalla.
    ========================================================================== */
 
@@ -46,7 +46,7 @@ html[data-density="compact"] {
 .rounded-xl { border-radius: var(--radius-xl); }
 .rounded-2xl { border-radius: var(--radius-2xl); }
 
-/* —— Color principal (indigo) —— */
+/* â€”â€” Color principal (indigo) â€”â€” */
 :root .bg-indigo-50 { background-color: var(--primary-50); }
 :root .bg-indigo-50\/70 { background-color: var(--primary-50); background-color: color-mix(in srgb, var(--primary-50) 70%, transparent); }
 :root .bg-indigo-100 { background-color: var(--primary-100); }
@@ -77,7 +77,7 @@ html[data-density="compact"] {
 :root .fill-indigo-500\/80 { fill: var(--primary-600); fill: color-mix(in srgb, var(--primary-600) 80%, transparent); }
 :root .hover\:fill-indigo-600:hover { fill: var(--primary-600); }
 
-/* —— Superficies neutras (slate + zinc + white) —— */
+/* â€”â€” Superficies neutras (slate + zinc + white) â€”â€” */
 :root .bg-white { background-color: var(--surface-1); }
 :root .bg-white\/95 { background-color: var(--surface-1); background-color: color-mix(in srgb, var(--surface-1) 95%, transparent); }
 :root .hover\:bg-white:hover { background-color: var(--surface-1); }
@@ -102,7 +102,7 @@ html[data-density="compact"] {
 :root .hover\:bg-slate-200:hover { background-color: var(--surface-4); }
 :root .hover\:bg-slate-800:hover { background-color: var(--surface-4); }
 
-/* —— Texto —— */
+/* â€”â€” Texto â€”â€” */
 :root .text-slate-900,
 :root .text-slate-800 { color: var(--text-1); }
 :root .text-slate-700,
@@ -118,7 +118,7 @@ html[data-density="compact"] {
 :root .hover\:text-slate-700:hover,
 :root .hover\:text-slate-600:hover { color: var(--text-2); }
 
-/* —— Bordes y separadores —— */
+/* â€”â€” Bordes y separadores â€”â€” */
 :root .border-slate-50,
 :root .border-slate-100 { border-color: var(--border-1); }
 :root .border-slate-200 { border-color: var(--border-2); }
@@ -130,7 +130,7 @@ html[data-density="compact"] {
 :root .divide-slate-50 > :not([hidden]) ~ :not([hidden]),
 :root .divide-slate-100 > :not([hidden]) ~ :not([hidden]) { border-color: var(--border-1); }
 
-/* —— Modo oscuro: matices del color principal —— */
+/* â€”â€” Modo oscuro: matices del color principal â€”â€” */
 [data-theme="dark"] .text-indigo-800 { color: var(--primary-300); }
 [data-theme="dark"] .text-indigo-900 { color: var(--primary-200); }
 [data-theme="dark"] .bg-indigo-50 { background-color: color-mix(in srgb, var(--primary-600) 16%, transparent); }
@@ -142,7 +142,7 @@ html[data-density="compact"] {
 [data-theme="dark"] .border-indigo-200 { border-color: color-mix(in srgb, var(--primary-600) 40%, transparent); }
 [data-theme="dark"] .ring-indigo-100 { --tw-ring-color: color-mix(in srgb, var(--primary-600) 30%, transparent); }
 
-/* —— Modo oscuro: colores semánticos —— */
+/* â€”â€” Modo oscuro: colores semÃ¡nticos â€”â€” */
 [data-theme="dark"] .bg-emerald-50 { background-color: rgba(16, 185, 129, 0.12); }
 [data-theme="dark"] .bg-emerald-100 { background-color: rgba(16, 185, 129, 0.2); }
 [data-theme="dark"] .hover\:bg-emerald-50:hover { background-color: rgba(16, 185, 129, 0.18); }
@@ -199,7 +199,7 @@ html[data-density="compact"] {
 [data-theme="dark"] .ring-violet-100 { --tw-ring-color: rgba(139, 92, 246, 0.25); }
 [data-theme="dark"] .text-violet-700 { color: #c4b5fd; }
 
-/* —— Modo oscuro: degradados de la pantalla de acceso —— */
+/* â€”â€” Modo oscuro: degradados de la pantalla de acceso â€”â€” */
 [data-theme="dark"] .from-slate-50 {
   --tw-gradient-from: var(--surface-2) var(--tw-gradient-from-position);
   --tw-gradient-to: rgb(15 23 42 / 0) var(--tw-gradient-to-position);

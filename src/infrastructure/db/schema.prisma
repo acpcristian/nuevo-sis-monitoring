@@ -558,7 +558,8 @@ model PlaybookExecution {
 }
 
 
-/// Configuración global de apariencia (fila única con id "global").
+
+/// ConfiguraciÃ³n global de apariencia (fila Ãºnica con id "global").
 model SystemSetting {
   id           String   @id @default("global")
   preset       String   @default("indigo")
