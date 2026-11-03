@@ -1,11 +1,12 @@
 "use client";
 
-import React, { useState, type FormEvent } from "react";
+import React, { useEffect, useRef, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
   Server, ScrollText, ShieldAlert, Siren, Bell, BarChart3, Workflow, LogOut, Activity,
   Users, KeyRound, X, Loader2, CheckCircle2, AlertCircle, History, Palette,
+  ChevronDown, ShieldCheck,
 } from "lucide-react";
 
 export interface NavUser {
@@ -157,6 +158,76 @@ function PasswordModal({ onClose }: { onClose: () => void }) {
   );
 }
 
+function AdminMenu({ pathname }: { pathname: string }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const onPointerDown = (event: MouseEvent) => {
+      if (ref.current && !ref.current.contains(event.target as Node)) setOpen(false);
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("mousedown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, []);
+
+  useEffect(() => {
+    setOpen(false);
+  }, [pathname]);
+
+  const active = ADMIN_LINKS.some(({ href }) => pathname.startsWith(href));
+
+  return (
+    <div ref={ref} className="relative shrink-0">
+      <button
+        type="button"
+        onClick={() => setOpen((value) => !value)}
+        aria-expanded={open}
+        aria-haspopup="menu"
+        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium whitespace-nowrap transition ${
+          active
+            ? "bg-indigo-50 text-indigo-700"
+            : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+        }`}
+      >
+        <ShieldCheck className="w-4 h-4" />
+        <span className="hidden md:block">Administración</span>
+        <ChevronDown className={`w-3.5 h-3.5 transition-transform ${open ? "rotate-180" : ""}`} />
+      </button>
+
+      {open && (
+        <div
+          role="menu"
+          className="absolute left-0 top-full z-50 mt-1 w-52 rounded-lg border border-slate-200 bg-white p-1 shadow-large"
+        >
+          {ADMIN_LINKS.map(({ href, label, icon: Icon }) => (
+            <Link
+              key={href}
+              href={href}
+              role="menuitem"
+              onClick={() => setOpen(false)}
+              className={`flex items-center gap-2 rounded-md px-3 py-2 text-sm ${
+                pathname.startsWith(href)
+                  ? "bg-indigo-50 text-indigo-700"
+                  : "text-slate-700 hover:bg-slate-50"
+              }`}
+            >
+              <Icon className="w-4 h-4" />
+              {label}
+            </Link>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function TopNav({ user }: { user: NavUser | null }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -171,8 +242,6 @@ export default function TopNav({ user }: { user: NavUser | null }) {
     router.refresh();
   };
 
-  const links = user?.role === "SUPERADMIN" ? [...LINKS, ...ADMIN_LINKS] : LINKS;
-
   return (
     <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/95 backdrop-blur">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 h-14 flex items-center gap-4">
@@ -183,8 +252,8 @@ export default function TopNav({ user }: { user: NavUser | null }) {
           </span>
         </Link>
 
-        <nav className="flex items-center gap-1 overflow-x-auto">
-          {links.map(({ href, label, icon: Icon }) => (
+        <nav className="flex items-center gap-1 overflow-x-auto min-w-0">
+          {LINKS.map(({ href, label, icon: Icon }) => (
             <Link
               key={href}
               href={href}
@@ -199,6 +268,8 @@ export default function TopNav({ user }: { user: NavUser | null }) {
             </Link>
           ))}
         </nav>
+
+        {user?.role === "SUPERADMIN" && <AdminMenu pathname={pathname} />}
 
         <div className="ml-auto flex items-center gap-3 shrink-0">
           {user ? (

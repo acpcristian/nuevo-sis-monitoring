@@ -39,3 +39,6 @@ Thumbs.db
 .claude/settings.local.json
 
 postgres-installer.exe
+
+# Script temporal de capturas (no versionar)
+_theme_shots.js

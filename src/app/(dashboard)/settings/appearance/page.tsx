@@ -286,7 +286,7 @@ export default function AppearancePage() {
                 onChange={(e) =>
                   setTheme((current) => ({ ...current, preset: "custom", primaryColor: e.target.value }))
                 }
-                className={`w-40 rounded-lg border px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
+                className={`w-40 rounded-lg border bg-white px-3 py-2 text-sm font-mono text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
                   invalidHex ? "border-red-300" : "border-slate-300"
                 }`}
                 placeholder="#4f46e5"
@@ -327,7 +327,7 @@ export default function AppearancePage() {
                 className={`flex items-center justify-center gap-2 rounded-lg border px-3 py-2.5 text-sm font-medium ${
                   theme.mode === "light"
                     ? "border-indigo-500 bg-indigo-50 text-indigo-700"
-                    : "border-slate-300 text-slate-600 hover:bg-slate-50"
+                    : "border-slate-300 bg-white text-slate-600 hover:bg-slate-50"
                 }`}
               >
                 <Sun className="w-4 h-4" /> Claro
@@ -337,7 +337,7 @@ export default function AppearancePage() {
                 className={`flex items-center justify-center gap-2 rounded-lg border px-3 py-2.5 text-sm font-medium ${
                   theme.mode === "dark"
                     ? "border-indigo-500 bg-indigo-50 text-indigo-700"
-                    : "border-slate-300 text-slate-600 hover:bg-slate-50"
+                    : "border-slate-300 bg-white text-slate-600 hover:bg-slate-50"
                 }`}
               >
                 <Moon className="w-4 h-4" /> Oscuro

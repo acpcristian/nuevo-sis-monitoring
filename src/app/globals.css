@@ -208,3 +208,19 @@ html[data-density="compact"] {
 [data-theme="dark"] .to-white {
   --tw-gradient-to: var(--surface-1) var(--tw-gradient-to-position);
 }
+
+/* —— Controles nativos (inputs, selects, textareas) —— */
+[data-theme="light"] { color-scheme: light; }
+[data-theme="dark"] { color-scheme: dark; }
+
+input:not([type="color"]):not([type="range"]):not([type="checkbox"]):not([type="radio"]),
+textarea,
+select {
+  background-color: var(--surface-1);
+  color: var(--text-1);
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--text-4);
+}
