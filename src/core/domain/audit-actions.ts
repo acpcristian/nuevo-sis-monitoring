@@ -34,6 +34,8 @@ export const AUDIT_ACTIONS = [
   "NOTIFICATION_RETRY_PROCESSED",
   // Reportes
   "REPORT_EXPORTED",
+  // Seguridad
+  "SECURITY_ALERT_SENT",
   // Automatización
   "PLAYBOOK_CREATED",
   "PLAYBOOK_UPDATED",
@@ -67,6 +69,7 @@ export const AUDIT_ACTION_GROUPS: AuditActionGroup[] = [
       { value: "USER_PASSWORD_RESET", label: "Contraseña restablecida" },
       { value: "USER_PASSWORD_CHANGED", label: "Contraseña cambiada" },
       { value: "UNAUTHORIZED_ATTEMPT", label: "Intento no autorizado" },
+      { value: "SECURITY_ALERT_SENT", label: "Alerta de seguridad enviada" },
     ],
   },
   {

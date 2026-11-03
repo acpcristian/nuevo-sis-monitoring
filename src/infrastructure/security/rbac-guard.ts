@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { ForbiddenError, UnauthorizedError } from "@/shared/errors/domain-errors";
 import { UserRole } from "@/core/domain/server.types";
 import { AuditService } from "@/core/services/audit.service";
+import { notifyUnauthorizedAttempt } from "@/core/services/security-alert.service";
 import { prisma } from "@/infrastructure/db/prisma";
 import { verifySessionToken, SESSION_COOKIE } from "@/infrastructure/security/session";
 
@@ -97,6 +98,14 @@ export class RbacGuard {
       } catch (e) {
         console.error("Error registrando auditoría de intento no autorizado:", e);
       }
+
+      // Alerta de seguridad asíncrona (no bloquea la respuesta 403).
+      notifyUnauthorizedAttempt({
+        userId: user.id,
+        attemptedAction: actionAttempted,
+        targetId: targetId ?? null,
+        ipAddress: user.ipAddress ?? null,
+      });
 
       throw new ForbiddenError("El rol OBSERVADOR no tiene privilegios para realizar modificaciones en el inventario.");
     }

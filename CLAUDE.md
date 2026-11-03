@@ -4,13 +4,16 @@
 > de credenciales, Definición de Hecho REFORZADA, Modo Objetivo / Loop SDD) son el
 > núcleo evergreen: consérvalas.
 
-## Active feature: 008-auditoria-sesiones
+## Active feature: 009-exportacion-auditoria-alertas
 
-Spec/plan/tasks: [specs/008-auditoria-sesiones/spec.md](specs/008-auditoria-sesiones/spec.md).
-Auditoría visible en `/audit` (filtros, paginación, detalle sanitizado) e invalidación
-inmediata de sesiones mediante `sessionVersion` revalidada contra la BD en cada petición.
+Spec/plan/tasks: [specs/009-exportacion-auditoria-alertas/spec.md](specs/009-exportacion-auditoria-alertas/spec.md).
+Exportación de auditoría en CSV/JSON desde `/audit` (auditada como `REPORT_EXPORTED`) y
+alertas de seguridad por los canales activos ante intentos no autorizados y logins fallidos
+repetidos (5 en 10 min), registradas como `SECURITY_ALERT_SENT`.
 
 ### Fases previas completadas
+- **008-auditoria-sesiones** — auditoría visible en `/audit` con filtros y detalle, e
+  invalidación inmediata de sesiones (`sessionVersion` revalidada contra la BD).
 - **007-gestion-usuarios** — alta/edición de usuarios, roles, reset y cambio de contraseña,
   protección del último SUPERADMIN activo; UI `/users` y modal «Mi contraseña».
 - **006-automatizacion** — playbooks con acciones seguras y mutantes bloqueadas hasta

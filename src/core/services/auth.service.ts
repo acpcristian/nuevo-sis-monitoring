@@ -4,6 +4,7 @@ import { prisma } from "@/infrastructure/db/prisma";
 import { createSessionToken } from "@/infrastructure/security/session";
 import { getEnv } from "@/shared/env";
 import { AuditService } from "@/core/services/audit.service";
+import { notifyLoginFailure } from "@/core/services/security-alert.service";
 import type { UserRole } from "@/core/domain/server.types";
 
 const scrypt = promisify(scryptCb);
@@ -74,6 +75,7 @@ export class AuthService {
         detailsDiff: { username, reason: user ? "inactivo" : "inexistente" },
         ipAddress: ipAddress ?? null,
       });
+      notifyLoginFailure({ username, ipAddress: ipAddress ?? null });
       return null;
     }
 
@@ -114,6 +116,7 @@ export class AuthService {
         detailsDiff: { username },
         ipAddress: ipAddress ?? null,
       });
+      notifyLoginFailure({ username, ipAddress: ipAddress ?? null });
       return null;
     }
 

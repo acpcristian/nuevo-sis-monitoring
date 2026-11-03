@@ -31,6 +31,35 @@ export interface AuditListItem {
 }
 
 export class AuditService {
+  /** Construye el `where` de Prisma a partir de los filtros de consulta/exportación. */
+  private static buildWhere(filters: AuditListFilters): Prisma.InventoryAuditLogWhereInput {
+    const where: Prisma.InventoryAuditLogWhereInput = {};
+    if (filters.action) where.action = filters.action;
+    if (filters.userId) where.userId = filters.userId;
+    if (filters.from || filters.to) {
+      where.timestamp = {
+        ...(filters.from ? { gte: filters.from } : {}),
+        ...(filters.to ? { lte: filters.to } : {}),
+      };
+    }
+    return where;
+  }
+
+  /** Resuelve los nombres de usuario de los actores presentes en las filas. */
+  private static async resolveActors(
+    rows: { userId: string }[]
+  ): Promise<Map<string, string>> {
+    const actorIds = [...new Set(rows.map((row) => row.userId))];
+    const actors =
+      actorIds.length > 0
+        ? await prisma.user.findMany({
+            where: { id: { in: actorIds } },
+            select: { id: true, username: true },
+          })
+        : [];
+    return new Map(actors.map((actor) => [actor.id, actor.username]));
+  }
+
   /**
    * Sanitiza cualquier campo sospechoso de contener credenciales o secretos
    * antes de persistir el diff en la base de datos (Principio VI).
@@ -91,16 +120,7 @@ export class AuditService {
   }> {
     const limit = Math.min(Math.max(filters.limit ?? 50, 1), 200);
     const offset = Math.max(filters.offset ?? 0, 0);
-
-    const where: Prisma.InventoryAuditLogWhereInput = {};
-    if (filters.action) where.action = filters.action;
-    if (filters.userId) where.userId = filters.userId;
-    if (filters.from || filters.to) {
-      where.timestamp = {
-        ...(filters.from ? { gte: filters.from } : {}),
-        ...(filters.to ? { lte: filters.to } : {}),
-      };
-    }
+    const where = this.buildWhere(filters);
 
     const [rows, total] = await Promise.all([
       prisma.inventoryAuditLog.findMany({
@@ -112,15 +132,7 @@ export class AuditService {
       prisma.inventoryAuditLog.count({ where }),
     ]);
 
-    const actorIds = [...new Set(rows.map((row) => row.userId))];
-    const actors =
-      actorIds.length > 0
-        ? await prisma.user.findMany({
-            where: { id: { in: actorIds } },
-            select: { id: true, username: true },
-          })
-        : [];
-    const actorNames = new Map(actors.map((actor) => [actor.id, actor.username]));
+    const actorNames = await this.resolveActors(rows);
 
     return {
       items: rows.map((row) => ({
@@ -137,6 +149,35 @@ export class AuditService {
       limit,
       offset,
     };
+  }
+
+  /**
+   * Exportación de auditoría (CSV/JSON): aplica los mismos filtros que `list` pero
+   * sin paginación, con un tope defensivo para no saturar la memoria del proceso.
+   */
+  public static async exportRows(
+    filters: Omit<AuditListFilters, "limit" | "offset">,
+    maxRows = 5000
+  ): Promise<AuditListItem[]> {
+    const where = this.buildWhere(filters);
+    const rows = await prisma.inventoryAuditLog.findMany({
+      where,
+      orderBy: { timestamp: "desc" },
+      take: Math.min(Math.max(maxRows, 1), 10000),
+    });
+
+    const actorNames = await this.resolveActors(rows);
+
+    return rows.map((row) => ({
+      id: row.id,
+      timestamp: row.timestamp.toISOString(),
+      userId: row.userId,
+      actorUsername: actorNames.get(row.userId) ?? null,
+      action: row.action,
+      targetServerId: row.targetServerId,
+      detailsDiff: row.detailsDiff,
+      ipAddress: row.ipAddress,
+    }));
   }
 }
 

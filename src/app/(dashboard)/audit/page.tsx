@@ -3,7 +3,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   History, RefreshCw, Loader2, AlertCircle, ChevronDown, ChevronRight,
-  Shield, User, Server, Siren, Bell, Workflow, FileSpreadsheet, KeyRound,
+  Shield, User, Server, Siren, Bell, Workflow, FileSpreadsheet, KeyRound, Download,
 } from "lucide-react";
 import { AUDIT_ACTION_GROUPS } from "@/core/domain/audit-actions";
 
@@ -80,19 +80,30 @@ export default function AuditPage() {
   const [expanded, setExpanded] = useState<string | null>(null);
   const [filters, setFilters] = useState({ action: "", userId: "", from: "", to: "" });
 
+  const buildFilterParams = useCallback(() => {
+    const params = new URLSearchParams();
+    if (filters.action) params.set("action", filters.action);
+    if (filters.userId) params.set("userId", filters.userId);
+    if (filters.from) params.set("from", new Date(`${filters.from}T00:00:00`).toISOString());
+    if (filters.to) params.set("to", new Date(`${filters.to}T23:59:59`).toISOString());
+    return params;
+  }, [filters]);
+
   const buildQuery = useCallback(
     (nextOffset: number) => {
-      const params = new URLSearchParams();
-      if (filters.action) params.set("action", filters.action);
-      if (filters.userId) params.set("userId", filters.userId);
-      if (filters.from) params.set("from", new Date(`${filters.from}T00:00:00`).toISOString());
-      if (filters.to) params.set("to", new Date(`${filters.to}T23:59:59`).toISOString());
+      const params = buildFilterParams();
       params.set("limit", String(LIMIT));
       params.set("offset", String(nextOffset));
       return params.toString();
     },
-    [filters]
+    [buildFilterParams]
   );
+
+  const exportHref = useMemo(() => {
+    const params = buildFilterParams();
+    params.set("format", "csv");
+    return `/api/v1/audit/export?${params.toString()}`;
+  }, [buildFilterParams]);
 
   const load = useCallback(
     async (nextOffset: number) => {
@@ -164,13 +175,22 @@ export default function AuditPage() {
             se enmascaran antes de persistirse.
           </p>
         </div>
-        <button
-          onClick={() => load(offset)}
-          disabled={loading}
-          className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-slate-300 bg-white text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50 self-start"
-        >
-          <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} /> Refrescar
-        </button>
+        <div className="flex items-center gap-2 self-start">
+          <a
+            href={exportHref}
+            className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700"
+            title="Descarga los eventos con los filtros activos en CSV"
+          >
+            <Download className="w-4 h-4" /> Exportar CSV
+          </a>
+          <button
+            onClick={() => load(offset)}
+            disabled={loading}
+            className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-slate-300 bg-white text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+          >
+            <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} /> Refrescar
+          </button>
+        </div>
       </div>
 
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
