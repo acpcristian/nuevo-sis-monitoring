@@ -18,8 +18,8 @@
 - [x] T011 Enlace «Notificaciones» en la navegación global
 
 ## 4. Validación
-- [ ] T012 E2E contra despliegue: crear canal → prueba (fallo controlado con URL inválida) → entrega RETRYING/FAILED visible → reintento
-- [ ] T013 Gate técnico: typecheck + test + build en verde
+- [x] T012 E2E contra despliegue: crear canal → prueba (fallo controlado con URL inválida) → entrega RETRYING/FAILED visible → reintento
+- [x] T013 Gate técnico: typecheck + test + build en verde
 
 ## Dependencias
 - `nodemailer` + `@types/nodemailer` (MIT, mantenida, estándar de industria) — evaluada bajo Principio XV; los demás canales usan `fetch` nativo sin dependencias.

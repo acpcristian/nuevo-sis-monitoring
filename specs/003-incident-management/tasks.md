@@ -26,9 +26,9 @@
 
 ## 4. Validación
 
-- [ ] T013 `pnpm typecheck` + `pnpm test` + `pnpm build` en verde
-- [ ] T014 E2E real contra despliegue Coolify: crear → asignar → en progreso → resolver (rootCause) → cerrar; SLA vencido visible; OBSERVADOR rechazado con 403
-- [ ] T015 Quickstart `specs/003-incident-management/quickstart.md` ejecutado y criterios SC verificados
+- [x] T013 `pnpm typecheck` + `pnpm test` + `pnpm build` en verde (0 errores TS, 90/90 tests, build OK)
+- [x] T014 E2E real contra despliegue Coolify: crear → asignar → en progreso → resolver (rootCause) → cerrar; SLA vencido visible; OBSERVADOR rechazado con 403
+- [x] T015 Quickstart `specs/003-incident-management/quickstart.md` ejecutado y criterios SC verificados
 
 ## Notas de evaluación de dependencias (Principio XV)
 

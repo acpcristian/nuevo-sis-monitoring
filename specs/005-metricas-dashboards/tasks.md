@@ -11,8 +11,8 @@
 - [x] T006 Enlace «Métricas» en navegación global
 
 ## 3. Validación
-- [ ] T007 E2E contra despliegue: KPIs cargan con datos reales y export CSV descarga con filas
-- [ ] T008 Gate técnico: typecheck + test + build en verde
+- [x] T007 E2E contra despliegue: KPIs cargan con datos reales y export CSV descarga con filas
+- [x] T008 Gate técnico: typecheck + test + build en verde
 
 ## Dependencias
 - Sin dependencias nuevas: gráficos en SVG/CSS puro (Principio XV).

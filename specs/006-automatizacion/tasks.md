@@ -13,8 +13,8 @@
 - [x] T008 Enlace «Automatización» en navegación global
 
 ## 3. Validación
-- [ ] T009 E2E contra despliegue: crear playbook con CHECK_STATE + WAIT_SECONDS → deshabilitado rechaza ejecución → activar y ejecutar OK; playbook con RUN_COMMAND registra SKIPPED_APPROVAL
-- [ ] T010 Gate técnico: typecheck + test + build en verde
+- [x] T009 E2E contra despliegue: crear playbook con CHECK_STATE + WAIT_SECONDS → deshabilitado rechaza ejecución → activar y ejecutar OK; playbook con RUN_COMMAND registra SKIPPED_APPROVAL
+- [x] T010 Gate técnico: typecheck + test + build en verde
 
 ## Dependencias
 - Sin dependencias nuevas.

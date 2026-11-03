@@ -33,3 +33,20 @@
   es un **array plano** (`GET /api/v1/deployments?resource_uuid=...`), no `{deployments}`.
 - La URL del panel es self-signed: usar `curl -k`. La URL de la app es LAN-only
   (`http://gqe0clxgeedygjtnwqzpagpw.172.16.100.22.sslip.io`).
+
+## Verificación E2E real (2026-11-02, contra Coolify)
+- `GET /api/health` → 200 `{"status":"ok"}`.
+- Login `admin` con `SUPERADMIN_PASSWORD` → 200 + cookie HttpOnly; `/api/v1/auth/me` → SUPERADMIN.
+- Servidor creado (201) → log ingerido (201, `token=[REDACTED]` sanitizado) → incidente
+  CRÍTICO con SLA 30 min (201) → ASSIGNED → IN_PROGRESS → RESOLVED (rootCause) → CLOSED,
+  con 5 entradas de auditoría append-only.
+- `/api/v1/metrics/overview` 200; export CSV `text/csv` con filas.
+- Canal WEBHOOK inalcanzable: creación 201 sin secretos en respuesta; prueba → 502 controlado;
+  entrega `RETRYING` con `nextRetryAt`; reenvío idéntico → `deduplicated: true`.
+- Playbook: DISABLED → ejecutar 409; activar → ejecución SUCCESS; `RUN_COMMAND` →
+  `SKIPPED_APPROVAL` (human-in-the-loop).
+- OBSERVADOR vía header → 403; API sin sesión → 401; todas las páginas protegidas → 200 con
+  sesión y 307 a `/login` sin ella.
+- Break-glass: si el hash del SUPERADMIN no coincide con `SUPERADMIN_PASSWORD`, el login
+  re-sincroniza el hash y audita `USER_UPDATED`.
+
