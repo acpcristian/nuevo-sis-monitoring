@@ -190,7 +190,7 @@ function AdminMenu({ pathname }: { pathname: string }) {
         onClick={() => setOpen((value) => !value)}
         aria-expanded={open}
         aria-haspopup="menu"
-        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium whitespace-nowrap transition ${
+        className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-sm font-medium whitespace-nowrap transition ${
           active
             ? "bg-indigo-50 text-indigo-700"
             : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
@@ -257,7 +257,7 @@ export default function TopNav({ user }: { user: NavUser | null }) {
             <Link
               key={href}
               href={href}
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium whitespace-nowrap transition ${
+              className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-sm font-medium whitespace-nowrap transition ${
                 isActive(href)
                   ? "bg-indigo-50 text-indigo-700"
                   : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
@@ -286,7 +286,7 @@ export default function TopNav({ user }: { user: NavUser | null }) {
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm text-slate-600 hover:text-indigo-700 hover:bg-indigo-50 transition"
               >
                 <KeyRound className="w-4 h-4" />
-                <span className="hidden lg:block">Mi contraseña</span>
+                <span className="hidden 2xl:block">Mi contraseña</span>
               </button>
               <button
                 onClick={logout}
