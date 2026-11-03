@@ -75,6 +75,7 @@ model Server {
   dataFreshness    DataFreshnessState?
   logAlerts        LogAlert[]
   incidents        Incident[]
+  services         ServerService[]
 
   @@index([environment, healthStatus, lifecycleState])
   @@index([ipAddress])
@@ -96,6 +97,39 @@ model ServerCredential {
   server           Server         @relation(fields: [serverId], references: [id], onDelete: Cascade)
 
   @@map("server_credentials")
+}
+
+// =============================================================================
+// 007 — Servicios por servidor (monitoreo de procesos/daemon)
+// =============================================================================
+
+enum ServiceStatus {
+  RUNNING
+  STOPPED
+  ERROR
+  UNKNOWN
+}
+
+model ServerService {
+  id          String        @id @default(uuid())
+  serverId    String        @map("server_id")
+  name        String
+  description String?
+  status      ServiceStatus @default(UNKNOWN) @map("status")
+  port        Int?          @map("port")
+  endpoint    String?       @map("endpoint")
+  processName String?       @map("process_name")
+  lastCheckedAt DateTime?    @map("last_checked_at")
+  lastResult  String?       @map("last_result")
+  createdAt   DateTime      @default(now()) @map("created_at")
+  updatedAt   DateTime      @updatedAt @map("updated_at")
+
+  server      Server        @relation(fields: [serverId], references: [id], onDelete: Cascade)
+
+  @@index([serverId, status])
+  @@index([serverId, name])
+  @@unique([serverId, name])
+  @@map("server_services")
 }
 
 model ConnectivityCheck {

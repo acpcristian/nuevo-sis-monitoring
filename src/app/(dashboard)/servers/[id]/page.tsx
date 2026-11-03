@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, use } from "react";
+import React, { useEffect, useState, use, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -16,10 +16,14 @@ import {
   Tag,
   AlertCircle,
   Loader2,
+  Plus,
+  RefreshCw,
+  Cpu,
 } from "lucide-react";
 import { ServerStatusBadge } from "@/components/servers/ServerStatusBadge";
 import { MaintenanceModal } from "@/components/servers/MaintenanceModal";
 import { DecommissionDialog } from "@/components/servers/DecommissionDialog";
+import { ServiceCard, ServiceItem, ServiceEmptyState } from "@/components/servers/ServiceCard";
 
 interface ServerDetail {
   id: string;
@@ -66,6 +70,15 @@ export default function ServerDetailPage({ params }: { params: Promise<{ id: str
   const [probeMessage, setProbeMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  // Services state
+  const [services, setServices] = useState<ServiceItem[]>([]);
+  const [servicesLoading, setServicesLoading] = useState(false);
+  const [servicesError, setServicesError] = useState<string | null>(null);
+  const [showAddService, setShowAddService] = useState(false);
+  const [servicesPollingInterval, setServicesPollingInterval] = useState<NodeJS.Timeout | null>(null);
+  const [addServiceForm, setAddServiceForm] = useState({ name: "", description: "", port: "", endpoint: "", processName: "" });
+  const [addingService, setAddingService] = useState(false);
+
   // Modals state
   const [isMaintenanceOpen, setIsMaintenanceOpen] = useState(false);
   const [isDecommissionOpen, setIsDecommissionOpen] = useState(false);
@@ -90,6 +103,38 @@ export default function ServerDetailPage({ params }: { params: Promise<{ id: str
     fetchServer();
   }, [serverId]);
 
+  // Fetch services for this server
+  const fetchServices = useCallback(async () => {
+    try {
+      setServicesLoading(true);
+      const res = await fetch(`/api/v1/servers/${serverId}/services`);
+      if (!res.ok) {
+        throw new Error("No se pudo cargar los servicios del servidor.");
+      }
+      const data = await res.json();
+      setServices(data.items || []);
+      setServicesError(null);
+    } catch (err: unknown) {
+      setServicesError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setServicesLoading(false);
+    }
+  }, [serverId]);
+
+  // Start polling for services when server is loaded
+  useEffect(() => {
+    if (!loading && server) {
+      fetchServices();
+      // Poll every 30 seconds for real-time updates
+      const interval = setInterval(fetchServices, 30000);
+      setServicesPollingInterval(interval);
+      return () => {
+        if (interval) clearInterval(interval);
+        setServicesPollingInterval(null);
+      };
+    }
+  }, [serverId, loading, server, fetchServices]);
+
   const handleTestConnection = async () => {
     setProbing(true);
     setProbeMessage(null);
@@ -104,6 +149,34 @@ export default function ServerDetailPage({ params }: { params: Promise<{ id: str
       setProbeMessage("Error al ejecutar la prueba de conectividad.");
     } finally {
       setProbing(false);
+    }
+  };
+
+  const handleAddService = async () => {
+    setAddingService(true);
+    try {
+      const res = await fetch(`/api/v1/servers/${serverId}/services`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: addServiceForm.name,
+          description: addServiceForm.description,
+          port: addServiceForm.port ? parseInt(addServiceForm.port, 10) : undefined,
+          endpoint: addServiceForm.endpoint,
+          processName: addServiceForm.processName,
+        }),
+      });
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.message || "Error al crear el servicio");
+      }
+      setShowAddService(false);
+      setAddServiceForm({ name: "", description: "", port: "", endpoint: "", processName: "" });
+      fetchServices();
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : String(err));
+    } finally {
+      setAddingService(false);
     }
   };
 
@@ -374,6 +447,139 @@ export default function ServerDetailPage({ params }: { params: Promise<{ id: str
           </table>
         </div>
       </div>
+
+      {/* Servicios del Servidor */}
+      <div className="bg-white rounded-2xl shadow-soft border border-slate-200 overflow-hidden">
+        <div className="p-6 border-b border-slate-100 bg-gradient-to-r from-slate-50 to-white">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-amber-600 rounded-xl shadow-medium">
+                <Cpu className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <h2 className="text-lg font-semibold text-slate-900">Servicios del Servidor</h2>
+                <p className="text-xs text-slate-500">Monitoreo de procesos y daemons en {server.name}</p>
+              </div>
+            </div>
+            <button
+              onClick={() => setShowAddService(true)}
+              className="inline-flex items-center gap-1.5 px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white text-sm font-semibold rounded-xl transition shadow-medium hover:shadow-large"
+            >
+              <Plus className="w-4 h-4" />
+              Agregar Servicio
+            </button>
+          </div>
+        </div>
+
+        <div className="p-6">
+          {servicesLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="w-6 h-6 animate-spin text-amber-600" />
+            </div>
+          ) : servicesError ? (
+            <div className="p-4 bg-rose-50 border border-rose-200 rounded-xl flex items-start gap-3 text-rose-800 text-sm shadow-soft">
+              <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
+              <div>
+                <p className="font-semibold">Error al cargar servicios</p>
+                <p className="text-rose-700 mt-0.5">{servicesError}</p>
+                <button
+                  onClick={fetchServices}
+                  className="mt-2 inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-amber-700 bg-amber-50 border border-amber-200 rounded-lg hover:bg-amber-100"
+                >
+                  <RefreshCw className="w-3 h-3" />
+                  Reintentar
+                </button>
+              </div>
+            </div>
+          ) : services.length === 0 ? (
+            <ServiceEmptyState />
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {services.map((service) => (
+                <ServiceCard key={service.id} service={service} onRefresh={fetchServices} />
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Modal: Agregar Servicio */}
+      {showAddService && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => { setShowAddService(false); setAddServiceForm({ name: "", description: "", port: "", endpoint: "", processName: "" }); }}>
+          <div className="bg-white rounded-2xl shadow-large w-full max-w-md p-6" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-lg font-semibold text-slate-900 mb-4">Agregar Servicio</h3>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Nombre *</label>
+                <input
+                  type="text"
+                  value={addServiceForm.name}
+                  onChange={(e) => setAddServiceForm({ ...addServiceForm, name: e.target.value })}
+                  placeholder="Ej: nginx, postgresql, docker"
+                  className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Descripción</label>
+                <textarea
+                  value={addServiceForm.description}
+                  onChange={(e) => setAddServiceForm({ ...addServiceForm, description: e.target.value })}
+                  rows={2}
+                  className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Puerto</label>
+                <input
+                  type="number"
+                  min="1"
+                  max="65535"
+                  value={addServiceForm.port}
+                  onChange={(e) => setAddServiceForm({ ...addServiceForm, port: e.target.value })}
+                  placeholder="80, 443, 5432..."
+                  className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Endpoint</label>
+                <input
+                  type="url"
+                  value={addServiceForm.endpoint}
+                  onChange={(e) => setAddServiceForm({ ...addServiceForm, endpoint: e.target.value })}
+                  placeholder="http://localhost:8080/health"
+                  className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Nombre del proceso</label>
+                <input
+                  type="text"
+                  value={addServiceForm.processName}
+                  onChange={(e) => setAddServiceForm({ ...addServiceForm, processName: e.target.value })}
+                  placeholder="nginx, postgres, docker"
+                  className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+                />
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 mt-6">
+              <button
+                onClick={() => { setShowAddService(false); setAddServiceForm({ name: "", description: "", port: "", endpoint: "", processName: "" }); }}
+                className="px-4 py-2 rounded-xl text-sm font-medium text-slate-700 bg-white border border-slate-300 hover:bg-slate-50"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleAddService}
+                disabled={addingService || !addServiceForm.name.trim()}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-amber-600 hover:bg-amber-700 disabled:opacity-60 text-white text-sm font-semibold rounded-xl"
+              >
+                {addingService && <Loader2 className="w-4 h-4 animate-spin" />}
+                Guardar Servicio
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modales */}
       <MaintenanceModal
