@@ -18,6 +18,11 @@
   `/metrics` con gráficos SVG nativos, export CSV/JSON auditado.
 - **006 Automatización**: playbooks secuenciales fail-fast; acciones seguras ejecutables y
   mutantes `SKIPPED_APPROVAL` (human-in-the-loop); nacen DISABLED; todo auditado.
+- **007 Gestión de usuarios**: `user.service.ts` (list/get/create/update/reset/change-own),
+  API `/api/v1/users` + `/api/v1/auth/password`, pantalla `/users` y modal «Mi contraseña».
+  Reglas: solo SUPERADMIN muta; un SUPERADMIN no puede desactivarse ni degradarse a sí mismo;
+  la plataforma nunca queda sin SUPERADMIN activo; `passwordHash` jamás sale por API; todas
+  las mutaciones se auditan (`USER_CREATED/UPDATED/PASSWORD_RESET/PASSWORD_CHANGED`).
 
 ## Gotchas críticos
 - **Edge Runtime**: `middleware.ts` NO puede importar módulos con `node:crypto`.

@@ -30,7 +30,7 @@
 
 - [x] T015 Unit tests: política de contraseña y reglas de protección del servicio (104/104 tests)
 - [x] T016 Gate técnico: `tsc --noEmit` + `vitest run` + `next build` en verde
-- [ ] T017 E2E en vivo: crear OBSERVADOR → login → 403 en mutaciones → reset → login con nueva → cambio propio → desactivar → login rechazado
+- [x] T017 E2E en vivo: crear OBSERVADOR → login → 403 en mutaciones → reset → login con nueva → cambio propio → desactivar → login rechazado
 
 ## Dependencias
 
