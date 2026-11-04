@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { ServerForm } from "@/components/servers/ServerForm";
+import { emitCatalogChange } from "@/lib/catalog-events";
 
 export default function NewServerPage() {
   const router = useRouter();
@@ -26,9 +27,10 @@ export default function NewServerPage() {
 
       <ServerForm
         onSuccess={() => {
-          setTimeout(() => {
-            router.push("/servers");
-          }, 1500);
+          // Notifica al catálogo para que refresque en tiempo real sin esperar
+          // a la navegación dura (que Next.js puede cachear).
+          emitCatalogChange();
+          router.push("/servers");
         }}
         onCancel={() => router.push("/servers")}
       />

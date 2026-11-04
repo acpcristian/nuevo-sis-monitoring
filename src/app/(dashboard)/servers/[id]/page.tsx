@@ -26,6 +26,7 @@ import { DecommissionDialog } from "@/components/servers/DecommissionDialog";
 import type { ServiceItem } from "@/components/servers/ServiceCard";
 import { ServiceTable } from "@/components/servers/ServiceTable";
 import { useServerMonitor } from "@/components/servers/useServerMonitor";
+import { emitCatalogChange } from "@/lib/catalog-events";
 
 interface ServerDetail {
   id: string;

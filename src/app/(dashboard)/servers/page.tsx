@@ -24,6 +24,7 @@ import {
   type ServerFiltersState,
 } from "@/components/servers/ServerFilters";
 import { useServerMonitor } from "@/components/servers/useServerMonitor";
+import { onCatalogChange } from "@/lib/catalog-events";
 import type { ServerListItem } from "@/components/servers/server-list-item";
 
 export default function ServersPage() {
@@ -52,6 +53,14 @@ export default function ServersPage() {
 
   useEffect(() => {
     void fetchServers(true);
+
+    // Refresco automático cuando otra vista (alta, retire, ciclo de vida)
+    // notifica un cambio en el catálogo.
+    const unsubscribe = onCatalogChange(() => {
+      void fetchServers();
+      void refresh(true);
+    });
+    return unsubscribe;
   }, [fetchServers]);
 
   const serverIds = useMemo(() => servers.map((server) => server.id), [servers]);

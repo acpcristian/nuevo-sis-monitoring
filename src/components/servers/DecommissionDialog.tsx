@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import { AlertTriangle, Trash2, Loader2 } from "lucide-react";
+import { emitCatalogChange } from "@/lib/catalog-events";
 
 interface DecommissionDialogProps {
   serverId: string;
@@ -49,6 +50,8 @@ export function DecommissionDialog({
         throw new Error(data.message || "Error al desincorporar servidor");
       }
 
+      // Notifica al catálogo para que el retirado aparezca en tiempo real.
+      emitCatalogChange();
       onSuccess();
       onClose();
     } catch (err: unknown) {

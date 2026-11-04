@@ -66,6 +66,18 @@ export async function POST(request: NextRequest) {
     const createdServer = await ServerService.createServer(validatedInput, user.id, user.ipAddress);
     const sanitizedResponse = ServerPresenter.toDto(createdServer as RawServerWithRelations, user.role);
 
+    // Notifica al catálogo del inventario para que el nuevo servidor aparezca inmediatamente.
+    try {
+      const catalogEventUrl = `${process.env.NEXT_PUBLIC_APP_URL || ""}/api/v1/catalog/events`;
+      await fetch(catalogEventUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: "SERVER_CREATED", serverId: createdServer.id }),
+      });
+    } catch (eventErr) {
+      console.warn("[server-create] falló notificación al catálogo:", eventErr);
+    }
+
     return NextResponse.json(sanitizedResponse, { status: 201 });
   } catch (error: unknown) {
     if (error instanceof DomainError) {
