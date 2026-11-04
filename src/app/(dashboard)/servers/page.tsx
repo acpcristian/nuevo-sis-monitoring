@@ -109,15 +109,22 @@ export default function ServersPage() {
     [liveServers, filters]
   );
 
+  const totalVisibleServers = useMemo(() => {
+    // Para métricas mostramos solo los no retirados, salvo que el usuario pida ver retirados
+    const base = filters.showRetired ? liveServers : liveServers.filter(s => s.lifecycleState !== "RETIRED");
+    return base.length;
+  }, [liveServers, filters.showRetired]);
+
   const metrics = useMemo(() => {
+    const base = filters.showRetired ? liveServers : liveServers.filter(s => s.lifecycleState !== "RETIRED");
     return {
-      total: liveServers.length,
-      online: liveServers.filter((server) => server.globalStatus === "ONLINE").length,
-      warning: liveServers.filter((server) => server.globalStatus === "WARNING").length,
-      offline: liveServers.filter((server) => server.globalStatus === "OFFLINE").length,
-      prod: liveServers.filter((server) => server.environment === "PROD").length,
+      total: base.length,
+      online: base.filter((server) => server.globalStatus === "ONLINE").length,
+      warning: base.filter((server) => server.globalStatus === "WARNING").length,
+      offline: base.filter((server) => server.globalStatus === "OFFLINE").length,
+      prod: base.filter((server) => server.environment === "PROD").length,
     };
-  }, [liveServers]);
+  }, [liveServers, filters.showRetired]);
 
   const metricCards = [
     {

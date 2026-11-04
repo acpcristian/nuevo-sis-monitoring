@@ -9,6 +9,7 @@ export interface ServerFiltersState {
   environment: string;
   osType: string;
   status: string;
+  showRetired: boolean;
 }
 
 export const INITIAL_SERVER_FILTERS: ServerFiltersState = {
@@ -16,6 +17,7 @@ export const INITIAL_SERVER_FILTERS: ServerFiltersState = {
   environment: "ALL",
   osType: "ALL",
   status: "ALL",
+  showRetired: false,
 };
 
 /** Filtrado reactivo en memoria compartido por la grilla y la tabla. */
@@ -26,6 +28,11 @@ export function filterServers(
   const term = filters.search.trim().toLowerCase();
 
   return servers.filter((server) => {
+    // Excluir retirados por defecto
+    if (!filters.showRetired && server.lifecycleState === "RETIRED") {
+      return false;
+    }
+
     const matchesSearch =
       term.length === 0 ||
       server.name.toLowerCase().includes(term) ||
@@ -125,6 +132,16 @@ export function ServerFilters({
               <option value="RETIRED">Retirado</option>
             </select>
           </div>
+
+          <label className="flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs text-slate-700 shadow-soft">
+            <input
+              type="checkbox"
+              checked={filters.showRetired}
+              onChange={(e) => onChange({ ...filters, showRetired: e.target.checked })}
+              className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+            />
+            Mostrar retirados
+          </label>
 
           <button
             onClick={onRefresh}
