@@ -4,7 +4,7 @@ import React, { useEffect, useState, use, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
-  ArrowLeft,
+  ChevronRight,
   Server,
   Key,
   Shield,
@@ -23,7 +23,9 @@ import {
 import { ServerStatusBadge } from "@/components/servers/ServerStatusBadge";
 import { MaintenanceModal } from "@/components/servers/MaintenanceModal";
 import { DecommissionDialog } from "@/components/servers/DecommissionDialog";
-import { ServiceCard, ServiceItem, ServiceEmptyState } from "@/components/servers/ServiceCard";
+import type { ServiceItem } from "@/components/servers/ServiceCard";
+import { ServiceTable } from "@/components/servers/ServiceTable";
+import { useServerMonitor } from "@/components/servers/useServerMonitor";
 
 interface ServerDetail {
   id: string;
@@ -75,7 +77,6 @@ export default function ServerDetailPage({ params }: { params: Promise<{ id: str
   const [servicesLoading, setServicesLoading] = useState(false);
   const [servicesError, setServicesError] = useState<string | null>(null);
   const [showAddService, setShowAddService] = useState(false);
-  const [servicesPollingInterval, setServicesPollingInterval] = useState<NodeJS.Timeout | null>(null);
   const [addServiceForm, setAddServiceForm] = useState({ name: "", description: "", port: "", endpoint: "", processName: "" });
   const [addingService, setAddingService] = useState(false);
 
@@ -121,19 +122,24 @@ export default function ServerDetailPage({ params }: { params: Promise<{ id: str
     }
   }, [serverId]);
 
-  // Start polling for services when server is loaded
+  // Carga inicial de servicios; después el hook de monitoreo mantiene el estado vivo.
   useEffect(() => {
     if (!loading && server) {
-      fetchServices();
-      // Poll every 30 seconds for real-time updates
-      const interval = setInterval(fetchServices, 30000);
-      setServicesPollingInterval(interval);
-      return () => {
-        if (interval) clearInterval(interval);
-        setServicesPollingInterval(null);
-      };
+      void fetchServices();
     }
   }, [serverId, loading, server, fetchServices]);
+
+  const { snapshots, lastUpdatedAt, isRefreshing, refresh } = useServerMonitor([serverId], {
+    intervalMs: 15000,
+    enabled: !loading && Boolean(server),
+  });
+
+  const liveSnapshot = snapshots[serverId];
+  const liveHealthStatus = liveSnapshot?.healthStatus ?? server?.healthStatus ?? "PENDING";
+  const liveCheckedAt = liveSnapshot?.checkedAt ?? server?.lastCheckedAt ?? null;
+  const displayServices: ServiceItem[] = liveSnapshot
+    ? liveSnapshot.services.map((service) => ({ ...service, createdAt: service.updatedAt }))
+    : services;
 
   const handleTestConnection = async () => {
     setProbing(true);
@@ -144,7 +150,8 @@ export default function ServerDetailPage({ params }: { params: Promise<{ id: str
       });
       const data = await res.json();
       setProbeMessage(`Prueba completada: ${data.status} en ${data.durationMs} ms. ${data.diagnosticSummary || ""}`);
-      fetchServer();
+      void fetchServer();
+      void refresh(true);
     } catch {
       setProbeMessage("Error al ejecutar la prueba de conectividad.");
     } finally {
@@ -172,7 +179,8 @@ export default function ServerDetailPage({ params }: { params: Promise<{ id: str
       }
       setShowAddService(false);
       setAddServiceForm({ name: "", description: "", port: "", endpoint: "", processName: "" });
-      fetchServices();
+      await fetchServices();
+      void refresh(true);
     } catch (err: unknown) {
       alert(err instanceof Error ? err.message : String(err));
     } finally {
@@ -206,24 +214,41 @@ export default function ServerDetailPage({ params }: { params: Promise<{ id: str
       {/* Barra superior de navegación */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 pb-5">
         <div>
-          <Link
-            href="/servers"
-            className="inline-flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-800 transition mb-2"
-          >
-            <ArrowLeft className="w-3.5 h-3.5" />
-            Volver al Inventario
-          </Link>
-          <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-bold text-slate-900 tracking-tight">{server.name}</h1>
-            <ServerStatusBadge healthStatus={server.healthStatus} lifecycleState={server.lifecycleState} />
+          <nav aria-label="Breadcrumb" className="mb-2 flex items-center gap-1.5 text-xs text-slate-500">
+            <Link href="/servers" className="transition hover:text-slate-800">
+              Servidores
+            </Link>
+            <ChevronRight className="h-3.5 w-3.5 text-slate-400" aria-hidden="true" />
+            <span className="max-w-[240px] truncate font-medium text-slate-700">{server.name}</span>
+          </nav>
+          <div className="flex flex-wrap items-center gap-3">
+            <h1 className="text-2xl font-bold tracking-tight text-slate-900">{server.name}</h1>
+            <ServerStatusBadge healthStatus={liveHealthStatus} lifecycleState={server.lifecycleState} />
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[11px] text-slate-500">
+              <span className="relative flex h-2 w-2">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-indigo-500 opacity-60" />
+                <span className="relative inline-flex h-2 w-2 rounded-full bg-indigo-500" />
+              </span>
+              En vivo
+              {lastUpdatedAt ? ` · ${lastUpdatedAt.toLocaleTimeString("es-ES")}` : ""}
+            </span>
           </div>
-          <p className="text-xs font-mono text-slate-500 mt-0.5">
+          <p className="mt-0.5 font-mono text-xs text-slate-500">
             {server.ipAddress}:{server.connectionPort} {server.hostname ? `(${server.hostname})` : ""}
           </p>
         </div>
 
         {/* Acciones del SUPERADMIN */}
         <div className="flex flex-wrap gap-2 items-center">
+          <button
+            onClick={() => void refresh(true)}
+            disabled={isRefreshing}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition shadow-sm disabled:opacity-50"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 text-indigo-600 ${isRefreshing ? "animate-spin" : ""}`} />
+            {isRefreshing ? "Sondeando..." : "Actualizar ahora"}
+          </button>
+
           <button
             onClick={handleTestConnection}
             disabled={probing || server.lifecycleState === "RETIRED"}
@@ -369,8 +394,8 @@ export default function ServerDetailPage({ params }: { params: Promise<{ id: str
             <div>
               <div className="text-slate-400 text-[11px]">Última Comprobación:</div>
               <div className="font-medium text-slate-800 mt-0.5">
-                {server.lastCheckedAt
-                  ? new Date(server.lastCheckedAt).toLocaleString("es-ES", { timeZoneName: "short" })
+                {liveCheckedAt
+                  ? new Date(liveCheckedAt).toLocaleString("es-ES", { timeZoneName: "short" })
                   : "Pendiente"}
               </div>
             </div>
@@ -458,7 +483,12 @@ export default function ServerDetailPage({ params }: { params: Promise<{ id: str
               </div>
               <div>
                 <h2 className="text-lg font-semibold text-slate-900">Servicios del Servidor</h2>
-                <p className="text-xs text-slate-500">Monitoreo de procesos y daemons en {server.name}</p>
+                <p className="text-xs text-slate-500">
+                  {displayServices.length} servicios monitoreados en {server.name}
+                  {liveSnapshot
+                    ? ` · ${displayServices.filter((service) => service.status === "RUNNING").length} en ejecución`
+                    : ""}
+                </p>
               </div>
             </div>
             <button
@@ -472,7 +502,7 @@ export default function ServerDetailPage({ params }: { params: Promise<{ id: str
         </div>
 
         <div className="p-6">
-          {servicesLoading ? (
+          {servicesLoading && displayServices.length === 0 ? (
             <div className="flex items-center justify-center py-12">
               <Loader2 className="w-6 h-6 animate-spin text-amber-600" />
             </div>
@@ -483,7 +513,7 @@ export default function ServerDetailPage({ params }: { params: Promise<{ id: str
                 <p className="font-semibold">Error al cargar servicios</p>
                 <p className="text-rose-700 mt-0.5">{servicesError}</p>
                 <button
-                  onClick={fetchServices}
+                  onClick={() => void fetchServices()}
                   className="mt-2 inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-amber-700 bg-amber-50 border border-amber-200 rounded-lg hover:bg-amber-100"
                 >
                   <RefreshCw className="w-3 h-3" />
@@ -491,14 +521,8 @@ export default function ServerDetailPage({ params }: { params: Promise<{ id: str
                 </button>
               </div>
             </div>
-          ) : services.length === 0 ? (
-            <ServiceEmptyState />
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {services.map((service) => (
-                <ServiceCard key={service.id} service={service} onRefresh={fetchServices} />
-              ))}
-            </div>
+            <ServiceTable services={displayServices} host={server.ipAddress} />
           )}
         </div>
       </div>

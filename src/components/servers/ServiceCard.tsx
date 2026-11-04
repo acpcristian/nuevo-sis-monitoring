@@ -24,7 +24,7 @@ export interface ServiceItem {
   processName?: string | null;
   lastCheckedAt?: string | null;
   lastResult?: string | null;
-  createdAt: string;
+  createdAt?: string;
   updatedAt: string;
 }
 

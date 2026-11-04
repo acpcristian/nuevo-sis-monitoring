@@ -12,6 +12,10 @@ const envSchema = z.object({
   AUTH_SECRET: z.string().min(16).optional(),
   SUPERADMIN_USER: z.string().min(3).optional(),
   SUPERADMIN_PASSWORD: z.string().min(8).optional(),
+  /** Sondeo periódico de servidores en el proceso del servidor Next.js. */
+  MONITOR_SCHEDULER_ENABLED: z.enum(["true", "false"]).default("true"),
+  /** Intervalo entre pasadas del scheduler; se recorta a [15 s, 1 h]. */
+  MONITOR_INTERVAL_MS: z.coerce.number().int().positive().default(60_000),
 });
 
 export type Env = z.infer<typeof envSchema>;

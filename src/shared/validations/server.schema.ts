@@ -51,6 +51,19 @@ export const RetireServerSchema = z.object({
   confirmationName: z.string().min(1, "Debe ingresar el nombre del servidor para confirmar"),
 });
 
+/**
+ * Sondeo bajo demanda. `ids` vacío/omitido significa "todos los servidores
+ * ACTIVE" (máximo 100) y se usa al abrir el dashboard. La cobertura completa
+ * del inventario la hace el scheduler en segundo plano, por lotes.
+ */
+export const MonitorServersSchema = z.object({
+  ids: z
+    .array(z.string().min(1, "ID de servidor inválido"))
+    .max(100, "No se pueden monitorear más de 100 servidores por petición")
+    .optional(),
+  force: z.boolean().optional().default(false),
+});
+
 export type CreateServerInput = z.infer<typeof CreateServerSchema>;
 export type UpdateServerInput = z.infer<typeof UpdateServerSchema>;
 export type ChangeLifecycleInput = z.infer<typeof ChangeLifecycleSchema>;

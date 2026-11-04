@@ -64,6 +64,11 @@ export class ServerQueryService {
           tags: {
             include: { tag: true },
           },
+          // Solo el estado: el panel necesita conteos sin descargar descripciones
+          // ni endpoints de cada servicio.
+          services: {
+            select: { status: true },
+          },
         },
       }),
     ]);
@@ -94,6 +99,9 @@ export class ServerQueryService {
         },
         tags: {
           include: { tag: true },
+        },
+        services: {
+          select: { status: true },
         },
         checks: {
           orderBy: { eventTimestamp: "desc" },
