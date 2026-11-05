@@ -1,6 +1,6 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import TopNav, { type NavUser } from "@/components/nav/TopNav";
+import DashboardShell, { type NavUser } from "@/components/nav/DashboardShell";
 import { verifySessionToken, SESSION_COOKIE } from "@/infrastructure/security/session";
 import { prisma } from "@/infrastructure/db/prisma";
 
@@ -27,9 +27,6 @@ export default async function DashboardLayout({
   }
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <TopNav user={user} />
-      <main>{children}</main>
-    </div>
+    <DashboardShell user={user}>{children}</DashboardShell>
   );
 }

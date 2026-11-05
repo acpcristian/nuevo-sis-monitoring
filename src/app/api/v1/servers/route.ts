@@ -17,6 +17,7 @@ export async function GET(request: NextRequest) {
     const healthStatus = searchParams.get("healthStatus") as HealthStatus | undefined;
     const lifecycleState = searchParams.get("lifecycleState") as LifecycleState | undefined;
     const search = searchParams.get("search") || undefined;
+    const secretaria = searchParams.get("secretaria") || undefined;
     const page = searchParams.get("page") ? parseInt(searchParams.get("page")!) : 1;
     const limit = searchParams.get("limit") ? parseInt(searchParams.get("limit")!) : 50;
 
@@ -26,6 +27,7 @@ export async function GET(request: NextRequest) {
       healthStatus,
       lifecycleState,
       search,
+      secretaria,
       page,
       limit,
     });

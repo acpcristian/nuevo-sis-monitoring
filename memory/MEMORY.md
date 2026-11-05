@@ -12,3 +12,4 @@
 - [auditoria-sesiones](auditoria-sesiones.md) — Feature 008: auditoria visible en /audit e invalidacion inmediata de sesiones con sessionVersion
 - [exportacion-auditoria-alertas](exportacion-auditoria-alertas.md) — Feature 009: export CSV/JSON de auditoria y alertas de seguridad por intentos no autorizados y logins fallidos repetidos
 - [apariencia](apariencia.md) — Feature 010: modulo de apariencia (color principal, modo claro/oscuro, radios y densidad) con tokens SSR, auditoria y verificacion visual/E2E; incluye incidente de credencial rotada
+- [rediseño-ui-nexocontrol](rediseño-ui-nexocontrol.md) — Rediseño institucional: sidebar fija (TopNav eliminado), preset nexo #526fdf, vistas Secretarías por etiqueta, modal de alta y verificacion manual 15/15

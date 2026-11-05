@@ -1,22 +1,30 @@
 import { test, expect } from "@playwright/test";
 
-test.describe("Flujo Completo E2E: Gestión e Inventario de Servidores", () => {
-  test("debe cargar la vista de inventario con controles de búsqueda y filtros", async ({ page }) => {
+test.describe("Flujo Completo E2E: Inventario de Servidores por Secretarías", () => {
+  test("debe cargar la vista de inventario con contenedores de secretarías", async ({ page }) => {
     await page.goto("/servers");
 
-    // Verificar encabezado y controles
-    await expect(page.getByRole("heading", { name: "Inventario de Servidores" })).toBeVisible();
-    await expect(page.getByPlaceholder("Buscar por nombre, IP o host...")).toBeVisible();
-    await expect(page.getByRole("link", { name: "Registrar Servidor" })).toBeVisible();
+    // Verificar encabezado institucional
+    await expect(page.getByRole("heading", { name: "Servidores", exact: true })).toBeVisible();
+    await expect(
+      page.getByText("Secretarías municipales", { exact: true })
+    ).toBeVisible();
+
+    // Controles de búsqueda y filtros de la spec
+    await expect(
+      page.getByPlaceholder("Buscar por nombre, IP o secretaría...")
+    ).toBeVisible();
+    await expect(page.getByRole("button", { name: "Agregar servidor" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Limpiar" })).toBeVisible();
   });
 
-  test("debe permitir navegar al formulario de alta de servidor", async ({ page }) => {
+  test("debe abrir el modal de alta desde la vista general", async ({ page }) => {
     await page.goto("/servers");
-    await page.getByRole("link", { name: "Registrar Servidor" }).click();
+    await page.getByRole("button", { name: "Agregar servidor" }).click();
 
-    await expect(page).toHaveURL("/servers/new");
-    await expect(page.getByRole("heading", { name: "Registrar Nuevo Servidor" })).toBeVisible();
-    await expect(page.getByPlaceholder("srv-prod-web-01")).toBeVisible();
+    const dialog = page.getByRole("dialog");
+    await expect(dialog.getByRole("heading", { name: "Agregar servidor" })).toBeVisible();
+    await expect(dialog.getByPlaceholder("srv-prod-web-01")).toBeVisible();
   });
 
   test("debe mostrar campos dinámicos de credencial según el sistema operativo", async ({ page }) => {
@@ -31,5 +39,21 @@ test.describe("Flujo Completo E2E: Gestión e Inventario de Servidores", () => {
     await osSelect.selectOption("WINDOWS");
     await expect(page.getByText("Contraseña en Claro *")).toBeVisible();
   });
-});
 
+  test("debe permitir entrar y volver de una secretaría", async ({ page }) => {
+    await page.goto("/servers");
+
+    // La primera tarjeta de secretaría clicable muestra "X servidores"
+    const firstCard = page.getByRole("button", { name: /servidores/ }).first();
+    await expect(firstCard).toBeVisible();
+    await firstCard.click();
+
+    // Vista interna: botón de regreso visible
+    await expect(page.getByRole("button", { name: "Volver a contenedores" })).toBeVisible();
+    await expect(page.getByText("Servidores asignados a esta secretaría municipal.")).toBeVisible();
+
+    // Regresar a contenedores
+    await page.getByRole("button", { name: "Volver a contenedores" }).click();
+    await expect(page.getByText("Secretarías municipales", { exact: true })).toBeVisible();
+  });
+});

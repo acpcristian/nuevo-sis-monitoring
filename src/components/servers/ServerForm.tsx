@@ -3,12 +3,32 @@
 import React, { useState } from "react";
 import { Server, Key, Shield, CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
 
+const SERVICIO_OPTIONS = [
+  "Aplicaciones",
+  "Base de datos",
+  "Archivos",
+  "Respaldo",
+  "Virtualización",
+] as const;
+
 interface ServerFormProps {
   onSuccess?: (server: unknown) => void;
   onCancel?: () => void;
+  /** Secretaría preasignada (cuando se abre desde la vista de una secretaría). */
+  defaultSecretaria?: string;
+  /** Sugerencias para el campo de secretaría (etiquetas ya registradas). */
+  secretariaOptions?: string[];
+  /** Modo modal: sin encabezado ni sombra (los pone el contenedor). */
+  embedded?: boolean;
 }
 
-export function ServerForm({ onSuccess, onCancel }: ServerFormProps) {
+export function ServerForm({
+  onSuccess,
+  onCancel,
+  defaultSecretaria,
+  secretariaOptions = [],
+  embedded = false,
+}: ServerFormProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
@@ -32,7 +52,9 @@ export function ServerForm({ onSuccess, onCancel }: ServerFormProps) {
   const [passphrase, setPassphrase] = useState("");
 
   // Tags State
-  const [tagsInput, setTagsInput] = useState("role=app, tier=frontend");
+  const [secretaria, setSecretaria] = useState(defaultSecretaria ?? "");
+  const [servicio, setServicio] = useState("");
+  const [tagsInput, setTagsInput] = useState("");
 
   const handleOsChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const val = e.target.value as "LINUX" | "WINDOWS" | "OTHER";
@@ -65,15 +87,25 @@ export function ServerForm({ onSuccess, onCancel }: ServerFormProps) {
     setError(null);
     setSuccessMsg(null);
 
-    // Parsear tags
-    const tags = tagsInput
+    // Parsear tags; secretaría y servicio se aplican como etiquetas de
+    // agrupación (reemplazan cualquier valor previo de las mismas claves).
+    const parsedTags = tagsInput
       .split(",")
       .map((t) => t.trim())
       .filter((t) => t.includes("="))
       .map((t) => {
         const [k, ...v] = t.split("=");
         return { key: k?.trim() || "", value: v.join("=").trim() };
+      })
+      .filter((tag) => {
+        const normalized = tag.key.toLowerCase().replace(/í/g, "i");
+        return normalized !== "secretaria" && normalized !== "servicio";
       });
+    const tags = [
+      ...parsedTags,
+      ...(secretaria.trim() ? [{ key: "secretaria", value: secretaria.trim() }] : []),
+      ...(servicio.trim() ? [{ key: "servicio", value: servicio.trim() }] : []),
+    ];
 
     const payload = {
       name,
@@ -123,18 +155,25 @@ export function ServerForm({ onSuccess, onCancel }: ServerFormProps) {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 space-y-6">
-      <div className="flex items-center gap-3 border-b border-slate-100 pb-4">
-        <div className="p-2 bg-indigo-50 text-indigo-600 rounded-lg">
-          <Server className="w-5 h-5" />
+    <form
+      onSubmit={handleSubmit}
+      className={`bg-white rounded-xl space-y-6 ${
+        embedded ? "p-0" : "shadow-sm border border-slate-200 p-6"
+      }`}
+    >
+      {!embedded && (
+        <div className="flex items-center gap-3 border-b border-slate-100 pb-4">
+          <div className="p-2 bg-indigo-50 text-indigo-600 rounded-lg">
+            <Server className="w-5 h-5" />
+          </div>
+          <div>
+            <h2 className="text-lg font-semibold text-slate-900">Registrar Nuevo Servidor</h2>
+            <p className="text-sm text-slate-500">
+              Añadir nodo al inventario con verificación segura de conectividad en modo solo lectura.
+            </p>
+          </div>
         </div>
-        <div>
-          <h2 className="text-lg font-semibold text-slate-900">Registrar Nuevo Servidor</h2>
-          <p className="text-sm text-slate-500">
-            Añadir nodo al inventario con verificación segura de conectividad en modo solo lectura.
-          </p>
-        </div>
-      </div>
+      )}
 
       {error && (
         <div className="p-4 bg-rose-50 border border-rose-200 rounded-lg flex items-center gap-3 text-rose-700 text-sm">
@@ -153,8 +192,9 @@ export function ServerForm({ onSuccess, onCancel }: ServerFormProps) {
       {/* Datos Básicos de Red */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">Nombre Identificativo *</label>
+          <label htmlFor="server-name" className="block text-sm font-medium text-slate-700 mb-1">Nombre Identificativo *</label>
           <input
+            id="server-name"
             type="text"
             required
             value={name}
@@ -165,8 +205,9 @@ export function ServerForm({ onSuccess, onCancel }: ServerFormProps) {
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">Dirección IP o Hostname *</label>
+          <label htmlFor="server-ip" className="block text-sm font-medium text-slate-700 mb-1">Dirección IP o Hostname *</label>
           <input
+            id="server-ip"
             type="text"
             required
             value={ipAddress}
@@ -266,7 +307,7 @@ export function ServerForm({ onSuccess, onCancel }: ServerFormProps) {
 
         <div>
           <div className="flex justify-between items-center mb-1">
-            <label className="block text-xs font-medium text-slate-600">
+            <label htmlFor="server-secret" className="block text-xs font-medium text-slate-600">
               {credentialType === "SSH_KEY" ? "Clave Privada PEM *" : "Contraseña en Claro *"}
             </label>
             {credentialType === "SSH_KEY" && (
@@ -277,6 +318,7 @@ export function ServerForm({ onSuccess, onCancel }: ServerFormProps) {
             )}
           </div>
           <textarea
+            id="server-secret"
             required
             rows={4}
             value={secretValue}
@@ -302,6 +344,57 @@ export function ServerForm({ onSuccess, onCancel }: ServerFormProps) {
             />
           </div>
         )}
+      </div>
+
+      {/* Secretaría municipal y servicio (agrupaciones) */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label htmlFor="server-secretaria" className="block text-sm font-medium text-slate-700 mb-1">
+            Secretaría municipal *
+          </label>
+          <input
+            id="server-secretaria"
+            type="text"
+            required
+            value={secretaria}
+            onChange={(e) => setSecretaria(e.target.value)}
+            list="secretaria-options"
+            placeholder="Secretaría de Hacienda"
+            aria-describedby="secretaria-help"
+            className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 text-sm"
+          />
+          <datalist id="secretaria-options">
+            {secretariaOptions.map((option) => (
+              <option key={option} value={option} />
+            ))}
+          </datalist>
+          <p id="secretaria-help" className="mt-1 text-[11px] text-slate-400">
+            Agrupa el servidor dentro de su secretaría en el panel de contenedores.
+          </p>
+        </div>
+        <div>
+          <label htmlFor="server-servicio" className="block text-sm font-medium text-slate-700 mb-1">
+            Servicio principal *
+          </label>
+          <select
+            id="server-servicio"
+            required
+            value={servicio}
+            onChange={(e) => setServicio(e.target.value)}
+            aria-describedby="servicio-help"
+            className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 text-sm bg-white"
+          >
+            <option value="">Selecciona un servicio</option>
+            {SERVICIO_OPTIONS.map((option) => (
+              <option key={option} value={option}>
+                {option}
+              </option>
+            ))}
+          </select>
+          <p id="servicio-help" className="mt-1 text-[11px] text-slate-400">
+            Función principal del equipo en la infraestructura.
+          </p>
+        </div>
       </div>
 
       {/* Metadatos adicionales */}

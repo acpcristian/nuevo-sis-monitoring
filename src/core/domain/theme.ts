@@ -4,6 +4,7 @@
  */
 
 export const THEME_PRESETS = [
+  { id: "nexo", label: "Nexo (institucional)", color: "#526fdf" },
   { id: "indigo", label: "Índigo", color: "#4f46e5" },
   { id: "ocean", label: "Océano", color: "#0284c7" },
   { id: "emerald", label: "Esmeralda", color: "#059669" },
@@ -27,8 +28,8 @@ export interface Theme {
 }
 
 export const DEFAULT_THEME: Theme = {
-  preset: "indigo",
-  primaryColor: "#4f46e5",
+  preset: "nexo",
+  primaryColor: "#526fdf",
   mode: "light",
   radius: 8,
   density: "comfortable",
@@ -138,20 +139,20 @@ export function resolveTheme(input: Partial<Theme> | null | undefined): Theme {
 }
 
 const LIGHT_TOKENS: Record<string, string> = {
-  "--surface-0": "#f8fafc",
+  "--surface-0": "#f5f7fa",
   "--surface-1": "#ffffff",
-  "--surface-2": "#f1f5f9",
-  "--surface-3": "#e8eef6",
-  "--surface-4": "#dbe3ee",
-  "--border-1": "#f1f5f9",
-  "--border-2": "#e2e8f0",
-  "--border-3": "#cbd5e1",
-  "--text-1": "#0f172a",
-  "--text-2": "#475569",
-  "--text-3": "#64748b",
-  "--text-4": "#94a3b8",
-  "--neutral-400": "#94a3b8",
-  "--inverse-surface": "#0f172a",
+  "--surface-2": "#eff2f6",
+  "--surface-3": "#e8edf4",
+  "--surface-4": "#dde4ee",
+  "--border-1": "#edf0f5",
+  "--border-2": "#e2e7ee",
+  "--border-3": "#cbd2dd",
+  "--text-1": "#172033",
+  "--text-2": "#46536b",
+  "--text-3": "#748196",
+  "--text-4": "#98a2b3",
+  "--neutral-400": "#98a2b3",
+  "--inverse-surface": "#172033",
 };
 
 const DARK_TOKENS: Record<string, string> = {
@@ -188,6 +189,10 @@ export function themeVars(theme: Theme): Record<string, string> {
     "--primary-800": darken(primary, 0.3),
     "--primary-900": darken(primary, 0.42),
     "--primary-contrast": contrastOn(primary),
+    "--sidebar-bg": "#151d2d",
+    "--sidebar-text": "#9aa6bd",
+    "--sidebar-text-strong": "#e6ecf7",
+    "--sidebar-active-bg": `color-mix(in srgb, ${primary} 18%, transparent)`,
     "--radius-md": `${Math.round(theme.radius * 0.75)}px`,
     "--radius-lg": `${theme.radius}px`,
     "--radius-xl": `${Math.round(theme.radius * 1.5)}px`,
