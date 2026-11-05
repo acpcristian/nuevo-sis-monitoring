@@ -44,9 +44,28 @@ async function main() {
   });
   const groupsData = await groupsRes.json();
   check("GET /api/v1/secretarias", groupsRes.ok, `${groupsData.total ?? 0} contenedores`);
-  const hacienda = (groupsData.items ?? []).find((g) => g.name === "Secretaría de Hacienda");
-  check("Agregado de Hacienda con conteos reales", Boolean(hacienda) && hacienda.total > 0,
-    hacienda ? `total=${hacienda.total} ok=${hacienda.ok} down=${hacienda.down} rel=${hacienda.serverIds.length}` : "no existe");
+
+  // — Catálogo oficial de secretarías: 10 contenedores siempre visibles —
+  const catalogNames = [
+    "SECRETARÍA MUNICIPAL DE GESTIÓN INSTITUCIONAL",
+    "SECRETARÍA MUNICIPAL DE ADMINISTRACIÓN Y FINANZAS",
+    "SECRETARÍA MUNICIPAL DE MOVILIDAD URBANA",
+    "SECRETARÍA MUNICIPAL DE EDUCACIÓN Y CULTURA",
+    "SECRETARÍA MUNICIPAL DE DESARROLLO HUMANO Y SOCIAL INTEGRAL",
+    "SECRETARÍA MUNICIPAL DE SEGURIDAD CIUDADANA",
+    "SECRETARÍA MUNICIPAL DE SALUD",
+    "SECRETARÍA MUNICIPAL DE INFRAESTRUCTURA PÚBLICA",
+    "SECRETARÍA MUNICIPAL DE AGUA, SANEAMIENTO, GESTIÓN AMBIENTAL Y RIESGOS",
+    "SECRETARÍA MUNICIPAL DE DESARROLLO ECONÓMICO",
+  ];
+  const faltantes = catalogNames.filter((n) => !(groupsData.items ?? []).some((g) => g.name === n));
+  check("Catálogo oficial completo (10 secretarías)", faltantes.length === 0,
+    faltantes.length ? `faltan: ${faltantes.join("; ")}` : "todas presentes");
+
+  const finanzas = (groupsData.items ?? []).find((g) => g.name === "SECRETARÍA MUNICIPAL DE ADMINISTRACIÓN Y FINANZAS");
+  check("Agregado Administración y Finanzas con conteos reales",
+    Boolean(finanzas) && finanzas.total > 0,
+    finanzas ? `total=${finanzas.total} down=${finanzas.down} historicos=${(finanzas.names ?? []).join("/")}` : "no existe");
 
   const sinAuth = await fetch(`${BASE}/api/v1/secretarias`);
   check("Endpoint protegido sin sesión (401)", sinAuth.status === 401, `status ${sinAuth.status}`);
@@ -56,10 +75,11 @@ async function main() {
 
   // — Grid renderizado desde el endpoint —
   await page
-    .getByRole("button", { name: /Secretaría de Hacienda/ })
+    .getByRole("button", { name: /SECRETARÍA MUNICIPAL DE ADMINISTRACIÓN Y FINANZAS/i })
     .first()
     .waitFor({ timeout: 10000 });
-  check("Tarjeta Hacienda visible (desde API)", true);
+  const cards = await page.locator("button:has(h3)").count().catch(() => 0);
+  check("Tarjeta de Finanzas visible (desde API)", true, `${cards} contenedores en el grid`);
 
   // — Alta por modal en una secretaría NUEVA, con servicio principal —
   const newSlug = `SRV-SAL-${String(Math.floor(Math.random() * 90) + 10)}`;
@@ -98,20 +118,20 @@ async function main() {
   await page.getByPlaceholder("Buscar por nombre, IP o secretaría...").fill("10.24.3.99");
   await page.waitForTimeout(400);
   const haciendaStillVisible = await page
-    .getByRole("button", { name: /Secretaría de Hacienda/ })
+    .getByRole("button", { name: /ADMINISTRACIÓN Y FINANZAS/i })
     .first()
     .isVisible()
     .catch(() => false);
   if (haciendaStillVisible) {
-    // La intersección puede seguir mostrando Hacienda si su IP contiene el término; comprobamos que Salud exista
+    // La intersección puede seguir mostrando Finanzas si alguna IP coincide; comprobamos que Salud exista
     await page
-      .getByRole("button", { name: /Secretaría de Salud/ })
+      .getByRole("button", { name: /Secretaría de Salud/i })
       .first()
       .waitFor({ timeout: 5000 });
   }
   check(
     "Búsqueda por IP filtra contenedores",
-    await page.getByRole("button", { name: /Secretaría de Salud/ }).first().isVisible()
+    await page.getByRole("button", { name: /Secretaría de Salud/i }).first().isVisible()
   );
 
   // — Estado vacío —
@@ -122,13 +142,13 @@ async function main() {
   // — Limpiar filtros restaura —
   await page.getByRole("button", { name: "Limpiar" }).click();
   await page
-    .getByRole("button", { name: /Secretaría de Hacienda/ })
+    .getByRole("button", { name: /ADMINISTRACIÓN Y FINANZAS/i })
     .first()
     .waitFor({ timeout: 5000 });
   check("Limpiar restaura los contenedores", true);
 
   // — Entrar por la tarjeta y ver el servidor real con servicio —
-  await page.getByRole("button", { name: /Secretaría de Salud/ }).first().click();
+  await page.getByRole("button", { name: /Secretaría de Salud/i }).first().click();
   await page.getByRole("button", { name: "Volver a contenedores" }).waitFor({ timeout: 5000 });
   await page.getByText(newSlug).first().waitFor({ timeout: 5000 });
   const rowText = await page.locator("tr", { hasText: newSlug }).first().textContent();

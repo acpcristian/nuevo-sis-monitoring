@@ -34,6 +34,8 @@ import type { ServerListItem } from "@/components/servers/server-list-item";
 interface SecretariaGroup {
   id: string; // valor del tag `secretaria` o "_sin_secretaria"
   name: string;
+  /** Valores de etiqueta que pertenecen al grupo (oficial + históricos). */
+  names?: string[];
   total: number;
   ok: number;
   warn: number;
@@ -71,6 +73,16 @@ const STATUS_OPTIONS: Array<{ value: StatusFilter; label: string }> = [
 
 function normalizedTagKey(key: string): string {
   return key.trim().toLowerCase().replace(/í/g, "i");
+}
+
+/** Clave de comparación de nombres de secretaría: mayúsculas, sin acentos. */
+function normalizedGroupKey(value: string): string {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, " ")
+    .trim();
 }
 
 function secretariaOf(server: ServerListItem): string {
@@ -239,9 +251,14 @@ export default function ServersPage() {
 
   /** ¿El servidor pertenece al contenedor de secretaría indicado? */
   const belongsToGroup = useCallback((server: ServerListItem, groupId: string): boolean => {
-    const name = secretariaOf(server);
-    return groupId === UNTAGGED_ID ? name === UNTAGGED_LABEL : name === groupId;
-  }, []);
+    if (groupId === UNTAGGED_ID) return secretariaOf(server) === UNTAGGED_LABEL;
+    // El valor del tag puede ser su nombre oficial o un alias histórico:
+    // compara por clave normalizada contra los nombres de todo el grupo.
+    const tagKey = normalizedGroupKey(secretariaOf(server));
+    const group = secretariaGroups?.find((candidate) => candidate.id === groupId);
+    const candidates = [groupId, ...(group?.names ?? [])].map((name) => normalizedGroupKey(name));
+    return candidates.includes(tagKey);
+  }, [secretariaGroups]);
 
   /** Búsqueda o filtrado por estado activo (el grid intersecta entonces en cliente). */
   const activeFilters = filters.search.trim().length > 0 || filters.status !== "ALL";
@@ -304,7 +321,10 @@ export default function ServersPage() {
       value: stats.total,
       detail: selectedSecretaria
         ? "En esta secretaría"
-        : `En ${secretariaGroups?.length ?? 0} secretaría${(secretariaGroups?.length ?? 0) === 1 ? "" : "s"}`,
+        : (() => {
+            const conServidores = (secretariaGroups ?? []).filter((group) => group.total > 0).length;
+            return `En ${conServidores} secretaría${conServidores === 1 ? "" : "s"}`;
+          })(),
       icon: Server,
       iconBg: "bg-indigo-50",
       iconColor: "text-indigo-600",
