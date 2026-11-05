@@ -76,3 +76,32 @@ backend real. Verificado E2E con `tests/verify-integracion.js` (14/14 checks).
   `getByRole("button", { name: /.../ })`.
 - El mensaje de validación HTML5 nativo no existe como texto del DOM;
   asserting con `input:invalid` + modal open.
+
+## Producción (Coolify)
+
+- Panel: `https://panel.elalto.gob.bo` (red interna del municipio; resuelve a
+  `172.16.100.22`). ⚠️ Su certificado TLS NO es confiable: PowerShell y curl
+  fallan sin `-k`; usar curl con `-k` para el API.
+- App: `nuevo-sis-monitoring` uuid `gqe0clxgeedygjtnwqzpagpw`, branch `main`,
+  status `running:healthy`. Credenciales en `.env` como `COOLIFY_API_URL`,
+  `COOLIFY_API_TOKEN` (NUNCA publicar el token en el chat).
+- URL pública de la app (delta hoy): `http://gqe0clxgeedygjtnwqzpagpw.172.16.100.22.sslip.io`
+  — solo LAN (sslip.io con IP interna). El dueño elvió dejarla así; si pide
+  `https://nexocontrol.elalto.gob.bo` hay que crear registro DNS A →
+  172.16.100.22 y luego PATCH `domains` en Coolify (Let's Encrypt elegido).
+- Healthcheck prod: `GET /api/health` → 200 `{"status":"ok"}`.
+- Deploy verificado 2026-11-05 con el commit `0f573f2` (rediseño +
+  secretarias): deploy forzado vía `POST /api/v1/deploy {"uuid":..., `
+  `"force":true}`, ~6 min de build, y el endpoint nuevo `GET
+  /api/v1/secretarias` responde 401 (código nuevo en producción).
+
+### Gotchas
+
+- El `COOLIFY_API_URL` original era un placeholder (`panel-coolify.tudominio.com`
+  → web aparcada que responde 200 HTML) y el `COOLIFY_APP_UUID` inicial NO
+  correspondía a la app ("Application not found"); para descubrir el uuid
+  correcto: `GET /api/v1/applications` y filtrar por `git_repository`.
+- `Invoke-RestMethod` de PowerShell NO logra pasar el certificado del panel
+  aunque se setee `ServerCertificateValidationCallback` ("Error inesperado de
+  envío"); curl `-k` sí funciona → usar curl para todo el API de Coolify.
+- Los PNG de evidencia viven en `test-results/redesign/` (commit `0f573f2`).
