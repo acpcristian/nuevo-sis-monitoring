@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   contarSeccion,
   extraerPrimerPuertoPublicado,
+  extraerPuertoEscucha,
   mapAgentPayloadToServiceCandidates,
   mapEstadoToServiceStatus,
   parseAgentJson,
@@ -23,8 +24,8 @@ const payloadValido = `{
     { "nombre": "cola", "estado": "exited", "puertos": "", "imagen": "rabbitmq:3" }
   ],
   "servicios_systemd": [
-    { "nombre": "nginx.service", "estado": "active", "descripcion": "A high performance web server" },
-    { "nombre": "postgresql.service", "estado": "inactive", "descripcion": "PostgreSQL RDBMS" },
+    { "nombre": "nginx.service", "estado": "active", "puertos": "0.0.0.0:80, [::]:80", "descripcion": "A high performance web server" },
+    { "nombre": "postgresql.service", "estado": "inactive", "puertos": "", "descripcion": "PostgreSQL RDBMS" },
     { "nombre": "backup.service", "estado": "failed", "descripcion": "Respaldo nocturno" }
   ]
 }`;
@@ -99,6 +100,21 @@ describe("extraerPrimerPuertoPublicado", () => {
   });
 });
 
+describe("extraerPuertoEscucha", () => {
+  it("extrae el primer puerto de la cadena de escucha del agente", () => {
+    expect(extraerPuertoEscucha("0.0.0.0:80, [::]:80")).toBe(80);
+    expect(extraerPuertoEscucha("[::]:6379")).toBe(6379);
+    expect(extraerPuertoEscucha("127.0.0.1:5432")).toBe(5432);
+  });
+
+  it("devuelve null sin cadena o sin puerto legible", () => {
+    expect(extraerPuertoEscucha("")).toBeNull();
+    expect(extraerPuertoEscucha(null)).toBeNull();
+    expect(extraerPuertoEscucha("sin-puertos")).toBeNull();
+    expect(extraerPuertoEscucha("0.0.0.0:70000")).toBeNull();
+  });
+});
+
 describe("contarSeccion", () => {
   it("cuenta entradas legibles con nombre", () => {
     expect(contarSeccion([{ nombre: "a" }, { estado: "x" }, "texto"], "nombre")).toBe(1);
@@ -134,12 +150,25 @@ describe("mapAgentPayloadToServiceCandidates", () => {
     expect(nginx).toMatchObject({
       status: "RUNNING",
       description: "A high performance web server",
-      port: null,
+      port: 80,
       processName: null,
     });
 
     expect(systemd.find((c) => c.name === "postgresql.service")?.status).toBe("STOPPED");
     expect(systemd.find((c) => c.name === "backup.service")?.status).toBe("ERROR");
+  });
+
+  it("extrae el puerto de escucha de systemd (y null si el agente no lo detectó)", () => {
+    const candidatos = mapAgentPayloadToServiceCandidates(
+      parseAgentJson(`{"servicios_systemd": [
+        { "nombre": "redis.service", "estado": "active", "puertos": "[::]:6379" },
+        { "nombre": "onshot.service", "estado": "active" },
+        { "nombre": "raro.service", "estado": "active", "puertos": "sin-puertos" }
+      ]}`)!
+    );
+    expect(candidatos.find((c) => c.name === "redis.service")?.port).toBe(6379);
+    expect(candidatos.find((c) => c.name === "onshot.service")?.port).toBeNull();
+    expect(candidatos.find((c) => c.name === "raro.service")?.port).toBeNull();
   });
 
   it("ignora entradas sin nombre legible (defensa ante payload corrupto)", () => {

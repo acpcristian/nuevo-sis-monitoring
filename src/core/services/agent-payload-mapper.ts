@@ -24,6 +24,8 @@ export interface AgenteContenedorDocker {
 export interface AgenteServicioSystemd {
   nombre?: unknown;
   estado?: unknown;
+  /** Puertos en escucha: "0.0.0.0:80, [::]:80" (solo lectura vía ss/netstat). */
+  puertos?: unknown;
   descripcion?: unknown;
 }
 
@@ -105,6 +107,20 @@ export function extraerPrimerPuertoPublicado(puertos: unknown): number | null {
   return puerto;
 }
 
+/**
+ * Extrae el primer puerto en ESCUCHA de la cadena que arma el agente con
+ * `ss -tlnp`/`netstat -tlnp`: "0.0.0.0:80, [::]:80" → 80. Devuelve null si no hay.
+ */
+export function extraerPuertoEscucha(puertos: unknown): number | null {
+  if (typeof puertos !== "string") return null;
+  const primer = puertos.split(",")[0]?.trim() ?? "";
+  const match = primer.match(/:(\d+)$/);
+  if (!match?.[1]) return null;
+  const puerto = Number.parseInt(match[1], 10);
+  if (!Number.isInteger(puerto) || puerto <= 0 || puerto > 65535) return null;
+  return puerto;
+}
+
 /** Coacciona un campo textual del payload a string|null defensivo. */
 function texto(valor: unknown): string | null {
   if (typeof valor !== "string") return null;
@@ -134,7 +150,9 @@ export function mapAgentPayloadToServiceCandidates(payload: AgentePayload): Agen
     }
   }
 
-  // B) Servicios systemd — la descripción de la unidad va al campo description.
+  // B) Servicios systemd — la descripción de la unidad va al campo description
+  // y el primer puerto en escucha (si el agente lo detectó con ss/netstat)
+  // habilita la verificación TCP del monitor en cada tick.
   if (Array.isArray(payload.servicios_systemd)) {
     for (const crudo of payload.servicios_systemd) {
       if (typeof crudo !== "object" || crudo === null) continue;
@@ -145,7 +163,7 @@ export function mapAgentPayloadToServiceCandidates(payload: AgentePayload): Agen
         name: nombre,
         status: mapEstadoToServiceStatus(unidad.estado),
         description: texto(unidad.descripcion),
-        port: null,
+        port: extraerPuertoEscucha(unidad.puertos),
         processName: null,
         origen: "SYSTEMD",
       });

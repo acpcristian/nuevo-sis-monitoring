@@ -1,35 +1,33 @@
 #!/bin/bash
 # =============================================================================
-# nexo_agent.sh — Agente recolector de servicios (100% solo lectura)
+# nexo_agent.sh v3 — Agente recolector de servicios (100% solo lectura)
 #
 # Ejecutado por SSH desde el dashboard NexoControl tras autorizar la llave.
 # Escanea el equipo: contenedores Docker, servicios systemd relevantes
-# (infraestructura web/BD/apps) y métricas básicas; imprime en stdout
-# UN único objeto JSON válido. El diagnóstico va a stderr.
+# (infraestructura web/BD/apps) con estado POR UNIDAD (systemctl show),
+# puertos en escucha mapeados por servicio (ss/netstat) y métricas básicas.
+# Imprime en stdout UN único objeto JSON válido. El diagnóstico va a stderr.
 #
 # Garantías:
 #   * Solo lectura: ningún comando detiene, reinicia ni modifica nada.
-#   * Tolerante a fallos: si Docker no existe o systemd no responde, esa
+#   * Tolerante a fallos: si Docker/systemctl/ss no existen o fallan, esa
 #     sección devuelve un arreglo vacío sin romper el JSON.
 #   * Sin dependencias externas (no requiere jq): el escapado JSON es
 #     Bash puro. Compatible con GNU y BusyBox (Alpine).
 #
-# Uso (directo o vía SSH):
-#   bash nexo_agent.sh
+# Uso:
 #   ssh -i /ruta/llave usuario@ip 'bash -s' < nexo_agent.sh
 # =============================================================================
 
-set -u        # error por variable no definida
-# (sin set -e: el objetivo es degradar con gracia, no abortar)
+set -u
 export LC_ALL="C"
 export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 umask 077
 
-informe() { printf '%s\n' "$*" >&2; }  # log de diagnóstico → stderr SIEMPRE
+informe() { printf '%s\n' "$*" >&2; }
 
 # -----------------------------------------------------------------------------
-# json_escape: cadena → literal JSON legal (Bash puro):
-# barra invertida, comillas, tabulación, CR y LF.
+# json_escape: cadena → literal JSON legal (Bash puro).
 # -----------------------------------------------------------------------------
 json_escape() {
   local valor="$1"
@@ -80,6 +78,64 @@ fi
 informe "» métricas: cpu=${cpu_pct}% ram=${ram_usada_mb}/${ram_total_mb} MB"
 
 # =============================================================================
+# Mapa de puertos en ESCUCHA (tcp): "dir:puerto<TAB>proceso<TAB>pid"
+# Se resuelve por MainPID de la unidad o por nombre de proceso == unidad.
+# =============================================================================
+informe "» recolectando sockets en escucha (tcp)..."
+
+escuchas_txt=""
+if command -v ss >/dev/null 2>&1; then
+  escuchas_txt="$(ss -tlnp 2>/dev/null || true)"
+elif command -v netstat >/dev/null 2>&1; then
+  escuchas_txt="$(netstat -tlnp 2>/dev/null || true)"
+fi
+
+escuchas=""
+if [ -n "$escuchas_txt" ]; then
+  escuchas="$(printf '%s\n' "$escuchas_txt" | awk '
+    $1 == "LISTEN" {
+      local = $4; cadena = ""
+      for (i = 5; i <= NF; i++) cadena = cadena $i
+      pid = ""; nombre = ""
+      if (match(cadena, /pid=[0-9]+/)) pid = substr(cadena, RSTART + 4, RLENGTH - 4)
+      if (match(cadena, /\("[^"]+"/)) nombre = substr(cadena, RSTART + 2, RLENGTH - 3)
+      print local "\t" nombre "\t" pid
+      next
+    }
+    $1 ~ /^tcp/ && $6 == "LISTEN" {
+      local = $4; prog = $7
+      pid = ""; nombre = ""
+      if (match(prog, /^[0-9]+/)) pid = substr(prog, RSTART, RLENGTH)
+      if (match(prog, /\/.+$/)) nombre = substr(prog, RSTART + 1, RLENGTH - 1)
+      print local "\t" nombre "\t" pid
+    }')"
+  if [ -n "$escuchas" ]; then
+    informe "» $(printf '%s\n' "$escuchas" | wc -l) sockets en escucha detectados"
+  else
+    informe "» sin sockets parseables (¿sin privilégios para ver procesos?); degrada sin puertos"
+  fi
+else
+  informe "» ni ss ni netstat disponibles; sin puertos de escucha"
+fi
+
+# puertos_de_unidad(pid base_unit): filtra el mapa por pid o nombre de proceso
+puertos_de_unidad() {
+  local pid="$1" base="$2"
+  if [ -z "$escuchas" ]; then
+    printf ''
+    return 0
+  fi
+  printf '%s\n' "$escuchas" | awk -v pid="$pid" -v nom="$base" '
+    {
+      coincide = 0
+      if (pid != "" && pid != "0" && $3 == pid) coincide = 1
+      if (!coincide && nom != "" && $2 != "" && $2 == nom) coincide = 1
+      if (coincide) acum = acum (acum == "" ? "" : ", ") $1
+    }
+    END { if (acum != "") print acum }'
+}
+
+# =============================================================================
 # A) Contenedores Docker (si existe el cliente Y responde el demonio)
 # =============================================================================
 informe "» recolectando servicios_docker..."
@@ -111,41 +167,49 @@ else
 fi
 
 # =============================================================================
-# B) Servicios systemd (solo infraestructura web/BD/aplicaciones)
-#    Lista blanca: evita saturar el payload con unidades base del SO
-#    (systemd-*, journald, cron, dbus...).
+# B) Servicios systemd — SOLO infraestructura web/BD/aplicaciones.
+#    Lista blanca ANCLADA (inicio y fin) para no casar substrings:
+#    kmod-static-nodes no vuelve a casar como "node"; systemd-tpm2 como "pm2".
+#    Estado y PID exactos por unidad con `systemctl show` (3 props, 1 llamada).
 # =============================================================================
 informe "» recolectando servicios_systemd..."
 
-relevantes_ss='nginx|apache|httpd|lighttpd|caddy|traefik|haproxy|varnish|mysql|mariadb|postgres|mongo|redis|memcached|elasticsearch|opensearch|kafka|rabbitmq|activemq|tomcat|jetty|wildfly|jboss|php-fpm|pm2|node|nextjs|nuxt|django|uwsgi|gunicorn|python|java|supervisord|docker'
+relevantes_ss='^(nginx|apache2?|httpd|lighttpd|caddy|traefik|haproxy|varnish|mysql|mariadb|mysqld|postgres(ql)?(-[0-9]+)?|mongodb?|mongod|redis(-server)?|memcached|elasticsearch|opensearch|kafka|rabbitmq-server|activemq|tomcat[0-9]*|jetty|wildfly|jboss|php[0-9.]*-fpm|pm2|node(-[0-9]+)?|nextjs|nuxt|uwsgi|gunicorn|supervisord|docker|containerd)([@-][[:alnum:]_.-]+)?[.]service$'
 
 servicios_systemd_json="[]"
 acum_ss=""
 if command -v systemctl >/dev/null 2>&1; then
-  informe "» systemd presente; consultando (solo lectura)..."
+  informe "» systemd presente; enumerando (solo lectura)..."
   lineas_systemd="$(systemctl list-units --type=service --all --no-legend --no-pager --no-ask-password 2>/dev/null || true)"
   if [ -n "$lineas_systemd" ]; then
-    filas_ss="$(printf '%s\n' "$lineas_systemd" | awk -v RE="$relevantes_ss" '
+    unidades_ss="$(printf '%s\n' "$lineas_systemd" | awk -v RE="$relevantes_ss" '
       {
-        unidad=$1; estado=$3
-        if (unidad !~ RE) next
-        print unidad "\t" estado
+        if ($1 !~ RE) next
+        print $1
       }')"
-    if [ -n "$filas_ss" ]; then
-      while IFS="$(printf '\t')" read -r ss_nombre ss_estado; do
-        [ -z "$ss_nombre" ] && continue
-        desc="$(systemctl show --property=Description --value "$ss_nombre" 2>/dev/null || true)"
-        item_json="$(printf '{"nombre":"%s","estado":"%s","descripcion":"%s"}' \
-          "$(json_escape "$ss_nombre")" "$(json_escape "${ss_estado:-unknown}")" \
-          "$(json_escape "${desc:-}")")"
+    if [ -n "$unidades_ss" ]; then
+      while IFS= read -r unidad_ss; do
+        [ -z "$unidad_ss" ] && continue
+        # show --value imprime una línea POR propiedad, en el orden pedido:
+        # 1) ActiveState, 2) Description, 3) MainPID.
+        salida_show="$(systemctl show --value -p ActiveState -p Description -p MainPID "$unidad_ss" 2>/dev/null || true)"
+        ss_estado="$(printf '%s\n' "$salida_show" | sed -n '1p')"
+        desc_ss="$(printf '%s\n' "$salida_show" | sed -n '2p')"
+        pid_ss="$(printf '%s\n' "$salida_show" | sed -n '3p')"
+        [ -z "$ss_estado" ] && ss_estado="unknown"
+        base_ss="${unidad_ss%.service}"
+        puertos_ss="$(puertos_de_unidad "$pid_ss" "$base_ss")"
+        item_json="$(printf '{"nombre":"%s","estado":"%s","puertos":"%s","descripcion":"%s"}' \
+          "$(json_escape "$unidad_ss")" "$(json_escape "$ss_estado")" \
+          "$(json_escape "${puertos_ss:-}")" "$(json_escape "${desc_ss:-}")")"
         if [ -z "$acum_ss" ]; then
           acum_ss="$item_json"
         else
           acum_ss="${acum_ss},${item_json}"
         fi
-      done <<< "$filas_ss"
+      done <<< "$unidades_ss"
       [ -n "$acum_ss" ] && servicios_systemd_json="[${acum_ss}]"
-      informe "» systemd: servicios relevantes recolectados"
+      informe "» systemd: servicios relevantes recolectados con puertos en escucha"
     else
       informe "» sin coincidencias en la lista blanca; servicios_systemd = []"
     fi

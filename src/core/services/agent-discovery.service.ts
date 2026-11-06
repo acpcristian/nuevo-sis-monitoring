@@ -108,7 +108,14 @@ async function ejecutarEscaneo(params: ParametrosConexionAgente): Promise<Discov
   const lastCheckedAt = new Date();
   let persistidos = 0;
 
+  // Mensaje de verificación legible que la UI muestra en "última verificación".
+  // Tener lastResult evita que un estado del agente aparezca como opaco.
+  const sello = `Verificado por agente SSH (solo lectura)`;
   for (const candidato of candidatos) {
+    const lastResult = candidato.port
+      ? `${sello} — escuchando en el puerto ${candidato.port}`
+      : `${sello} — servicio local sin puertos publicados`;
+
     await prisma.serverService.upsert({
       where: { serverId_name: { serverId: params.serverId, name: candidato.name } },
       create: {
@@ -119,6 +126,7 @@ async function ejecutarEscaneo(params: ParametrosConexionAgente): Promise<Discov
         port: candidato.port,
         processName: candidato.processName,
         lastCheckedAt,
+        lastResult,
       },
       update: {
         status: candidato.status,
@@ -126,6 +134,7 @@ async function ejecutarEscaneo(params: ParametrosConexionAgente): Promise<Discov
         port: candidato.port,
         processName: candidato.processName,
         lastCheckedAt,
+        lastResult,
       },
     });
     persistidos += 1;

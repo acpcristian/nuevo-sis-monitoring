@@ -255,14 +255,18 @@ export class ServerMonitoringService {
 
     // Host y servicios se comprueban en paralelo: un puerto SSH cerrado no debe
     // impedir que un health endpoint del servicio demuestre que el host está vivo.
+    // Los servicios SIN puerto ni endpoint se saltan: su estado real viene del
+    // agente SSH (nexo_agent.sh) y NO debe sobrescribirse con UNKNOWN cada tick.
     const [hostProbe, serviceOutcomes] = await Promise.all([
       TcpProbe.probe({
         host: server.ipAddress,
         port: server.connectionPort,
         timeoutMs: HOST_TIMEOUT_MS,
       }),
-      mapWithConcurrency(server.services, SERVICE_CONCURRENCY, (service) =>
-        this.probeService(server, service)
+      mapWithConcurrency(
+        server.services.filter((service) => service.port || service.endpoint),
+        SERVICE_CONCURRENCY,
+        (service) => this.probeService(server, service)
       ),
     ]);
 
@@ -327,7 +331,8 @@ export class ServerMonitoringService {
    * Determina el estado real de un servicio:
    * - Con endpoint: health check HTTP(S), priorizando el resultado del endpoint.
    * - Con puerto: handshake TCP.
-   * - Sin puerto ni endpoint: UNKNOWN explícito (no se inventa un estado).
+   * - Sin puerto ni endpoint: NUNCA se llega aquí (se filtra antes para no
+   *   pisar el estado que reportó el agente SSH); la rama queda como defensa.
    */
   private static async probeService(
     server: ServerWithServices,
