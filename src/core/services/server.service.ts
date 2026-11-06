@@ -14,12 +14,48 @@ export class ServerService {
    * sondeo de conectividad no intrusivo y registro de auditoría inmutable.
    */
   public static async createServer(input: CreateServerInput, userId: string, userIp?: string) {
-    // 1. Verificar unicidad de nombre (FR-001)
+    // 1. Verificar unicidad de nombre (FR-001). Si el único registro con ese
+    //    nombre es una unidad RETIRADA, se libera el nombre renombrándola con
+    //    sello temporal (el histórico y las auditorías quedan intactos) y el
+    //    alta procede — re-registrar un equipo previamente eliminado es válido.
     const existing = await prisma.server.findUnique({
       where: { name: input.name },
+      select: { id: true, lifecycleState: true },
     });
-    if (existing) {
+
+    if (existing && existing.lifecycleState !== "RETIRED") {
       throw new ConflictError(`Ya existe un servidor registrado con el nombre '${input.name}'.`);
+    }
+
+    let verificaRenombrado: string | null = null;
+    if (existing) {
+      const ahora = new Date();
+      const sello = [
+        String(ahora.getFullYear()).padStart(4, "0"),
+        String(ahora.getMonth() + 1).padStart(2, "0"),
+        String(ahora.getDate()).padStart(2, "0"),
+        String(ahora.getHours()).padStart(2, "0"),
+        String(ahora.getMinutes()).padStart(2, "0"),
+        String(ahora.getSeconds()).padStart(2, "0"),
+      ].join("");
+      // ≤100 chars garantizado: base truncada a 91 + "-" + 8 hex del id (globalmente único).
+      verificaRenombrado = `${`${input.name}-retirado-${sello}`.slice(0, 91)}-${existing.id.slice(0, 8)}`;
+
+      await prisma.server.update({
+        where: { id: existing.id },
+        data: { name: verificaRenombrado },
+      });
+
+      await AuditService.recordEvent({
+        userId,
+        action: "METADATA_UPDATED",
+        targetServerId: existing.id,
+        detailsDiff: {
+          updatedFields: ["name"],
+          motivo: "Nombre liberado para el re-registro de un servidor retirado",
+        },
+        ipAddress: userIp,
+      });
     }
 
     // 2. Cifrar credencial si fue proporcionada (Principio III)
@@ -176,6 +212,7 @@ export class ServerService {
         hasCredential: !!input.credential,
         initialHealth: computedHealth,
         serviciosDescubiertos: discoveryOutcome?.metricas.persistidos ?? 0,
+        renombroRetirado: verificaRenombrado ?? undefined,
       },
       ipAddress: userIp,
     });
