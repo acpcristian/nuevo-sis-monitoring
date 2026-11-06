@@ -91,6 +91,51 @@ export class SshProbe {
           password: params.password,
           readyTimeout: timeoutMs,
           // Restricción: no abrir shells interactivas ni túneles
+          // Algoritmos KEX ampliados para servidores con configuraciones legacy
+          // (OpenSSH < 8.0, routers, firewalls) que no aceptan los defaults modernos.
+          algorithms: {
+            kex: [
+              "curve25519-sha256",
+              "curve25519-sha256@libssh.org",
+              "ecdh-sha2-nistp256",
+              "ecdh-sha2-nistp384",
+              "ecdh-sha2-nistp521",
+              "diffie-hellman-group-exchange-sha256",
+              "diffie-hellman-group-exchange-sha1",
+              "diffie-hellman-group14-sha256",
+              "diffie-hellman-group14-sha1",
+              "diffie-hellman-group1-sha1",
+            ],
+            serverHostKey: [
+              "ssh-ed25519",
+              "ecdsa-sha2-nistp256",
+              "ecdsa-sha2-nistp384",
+              "ecdsa-sha2-nistp521",
+              "ssh-rsa",
+              "ssh-dss",
+            ],
+            cipher: [
+              "chacha20-poly1305@openssh.com",
+              "aes256-gcm@openssh.com",
+              "aes128-gcm@openssh.com",
+              "aes256-ctr",
+              "aes192-ctr",
+              "aes128-ctr",
+              "aes256-cbc",
+              "aes192-cbc",
+              "aes128-cbc",
+              "3des-cbc",
+            ],
+            hmac: [
+              "hmac-sha2-256",
+              "hmac-sha2-512",
+              "hmac-sha2-256-etm@openssh.com",
+              "hmac-sha2-512-etm@openssh.com",
+              "hmac-sha1",
+              "hmac-sha1-96",
+              "hmac-md5",
+            ],
+          },
         });
       } catch (err: unknown) {
         clearTimeout(timer);
