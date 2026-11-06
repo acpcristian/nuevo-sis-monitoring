@@ -25,6 +25,7 @@ pnpm-debug.log*
 .cache/
 tmp/
 .tmp/
+test-results/
 
 # --- OS / editor ---
 .DS_Store
