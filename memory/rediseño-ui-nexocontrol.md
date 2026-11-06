@@ -123,6 +123,27 @@ backend real. Verificado E2E con `tests/verify-integracion.js` (14/14 checks).
   (`src/server.js` de OTRO proyecto del dueño): NO matarlo; levantar el dev
   del SIS con `pnpm dev --port 3002`.
 
+- Integración agente SSH ya DESPLEGADA (commits `32946b0`, `6b2e85e`):
+  - El estado UNKNOWN no era del agente sino del **tick del monitor** que
+    sobrescribía todos los servicios cada 15 s («Sin puerto ni endpoint
+    configurado…»). Corregido: el tick EXCLUYE servicios sin port/endpoint
+    y preserva el estado que reportó el agente.
+  - Agente v3: mapa `ss -tlnp`/`netstat -tlnp` → puertos en escucha por
+    unidad (MainPID + nombre de proceso), estado exacto vía
+    `systemctl show -p ActiveState/-p Description/-p MainPID` (1 llamada),
+    lista blanca ANCLADA (falsos positivos eliminados: kmod-static-nodes
+    casaba 'node', systemd-tpm2 casaba 'pm2') y campo `puertos` en el
+    item systemd; mapper llena `port` para ambos orígenes.
+  - Al re-escanear, cada servicio queda con `lastResult`: «Verificado por
+    agente SSH — escuchando en el puerto N / servicio local sin puertos
+    publicados».
+  - ⚠️ Tras NUEVO deploy hay que volver a disparar el escaneo por servidor
+    (botón «Probar conexión» del detalle, que hace handshake + discovery,
+    o el endpoint manual) para refrescar estado/puerto de los servicios
+    ya persistidos con el esquema viejo.
+  - Cert LE sigue default (TRAEFIK DEFAULT CERT) a la fecha; la app
+    responde 200 con -k en producción; pendiente log del proxy/NAT.
+
 ## Pendiente crítico (heredado)
 
 - `POST /api/v1/auth/login` en producción responde 500 con CUALQUIER
