@@ -48,6 +48,8 @@ export async function POST(request: NextRequest) {
         { status: error.statusCode }
       );
     }
+    // Diagnóstico: el 500 de login sin stack es indistinguible en producción.
+    console.error("Error interno en POST /api/v1/auth/login:", error);
     return NextResponse.json(
       { error_code: "INTERNAL_ERROR", message: "Error interno al iniciar sesión." },
       { status: 500 }
