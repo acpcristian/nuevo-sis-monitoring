@@ -7,6 +7,7 @@ import { prisma } from "@/infrastructure/db/prisma";
 import { UpdateServerSchema, RetireServerSchema } from "@/shared/validations/server.schema";
 import { SecretVault } from "@/infrastructure/crypto/secret-vault";
 import { AuditService } from "@/core/services/audit.service";
+import { AgentDiscoveryService } from "@/core/services/agent-discovery.service";
 
 export async function GET(
   request: NextRequest,
@@ -113,8 +114,31 @@ export async function PATCH(
       ipAddress: user.ipAddress,
     });
 
+    // Escaneo con el agente recolector (solo lectura): si se rotó la credencial
+    // o cambiaron IP/puerto, re-descubre servicios de forma post-transacción.
+    // Nunca rompe el PATCH si el escaneo falla.
+    let discoveryOutcome = null;
+    const cambioConectividad =
+      validated.ipAddress !== undefined || validated.connectionPort !== undefined;
+    if (existing.osType === "LINUX" && (validated.newCredential || cambioConectividad)) {
+      try {
+        discoveryOutcome = await AgentDiscoveryService.discoverForServer(id);
+      } catch (error) {
+        console.error("Error en escaneo del agente tras actualización:", error);
+      }
+    }
+
     const fullServer = await ServerQueryService.getServerById(id);
-    return NextResponse.json(ServerPresenter.toDto(fullServer as RawServerWithRelations, user.role));
+    return NextResponse.json({
+      ...ServerPresenter.toDto(fullServer as RawServerWithRelations, user.role),
+      discovery: discoveryOutcome
+        ? {
+            ok: discoveryOutcome.ok,
+            motivo: discoveryOutcome.motivo,
+            serviciosPersistidos: discoveryOutcome.metricas.persistidos,
+          }
+        : undefined,
+    });
   } catch (error: unknown) {
     if (error instanceof DomainError) {
       return NextResponse.json({ error_code: error.code, message: error.message }, { status: error.statusCode });

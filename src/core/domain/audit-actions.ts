@@ -8,6 +8,7 @@ export const AUDIT_ACTIONS = [
   "METADATA_UPDATED",
   "STATUS_CHANGED",
   "SERVER_RETIRED",
+  "SERVICES_DISCOVERED",
   "UNAUTHORIZED_ATTEMPT",
   // Logs y diagnóstico
   "LOG_INGESTED",
@@ -81,6 +82,7 @@ export const AUDIT_ACTION_GROUPS: AuditActionGroup[] = [
       { value: "METADATA_UPDATED", label: "Metadatos actualizados" },
       { value: "STATUS_CHANGED", label: "Estado cambiado" },
       { value: "SERVER_RETIRED", label: "Servidor retirado" },
+      { value: "SERVICES_DISCOVERED", label: "Servicios descubiertos por agente" },
     ],
   },
   {

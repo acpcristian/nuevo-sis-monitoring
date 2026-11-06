@@ -4,6 +4,7 @@ import { ConflictError, NotFoundError } from "@/shared/errors/domain-errors";
 import { SecretVault } from "@/infrastructure/crypto/secret-vault";
 import { SshProbe } from "@/infrastructure/network/ssh-probe";
 import { WinrmProbe } from "@/infrastructure/network/winrm-probe";
+import { AgentDiscoveryService, DiscoveryOutcome } from "./agent-discovery.service";
 import { AuditService } from "./audit.service";
 import { HealthStatus, CheckResultStatus } from "../domain/server.types";
 
@@ -137,6 +138,31 @@ export class ServerService {
       console.error("Error en sondeo inicial no intrusivo:", e);
     }
 
+    // 4b. Escaneo de servicios con el agente recolector (solo lectura).
+    // Solo se dispara si el handshake SSH fue exitoso y la credencial es
+    // interpretable por SSH (llave o contraseña); nunca bloquea el alta si falla.
+    let discoveryOutcome: DiscoveryOutcome | null = null;
+    if (
+      probeResult?.status === "SUCCESS" &&
+      input.credential &&
+      input.credential.credentialType === "SSH_KEY" &&
+      input.osType === "LINUX"
+    ) {
+      try {
+        discoveryOutcome = await AgentDiscoveryService.discoverForNewServer(
+          newServer.id,
+          {
+            username: input.credential.username,
+            secretValue: input.credential.secretValue,
+            credentialType: "SSH_KEY",
+          },
+          { ipAddress: input.ipAddress, connectionPort: input.connectionPort || 22 }
+        );
+      } catch (e) {
+        console.error("Error en escaneo inicial de servicios con agente:", e);
+      }
+    }
+
     // 5. Emitir registro de auditoría (Principio VI)
     await AuditService.recordEvent({
       userId,
@@ -149,6 +175,7 @@ export class ServerService {
         environment: input.environment,
         hasCredential: !!input.credential,
         initialHealth: computedHealth,
+        serviciosDescubiertos: discoveryOutcome?.metricas.persistidos ?? 0,
       },
       ipAddress: userIp,
     });
@@ -239,12 +266,30 @@ export class ServerService {
       });
     }
 
+    // Escaneo de servicios con el agente recolector (solo lectura), únicamente
+    // si el handshake SSH fue exitoso. Nunca rompe la prueba de conexión si falla.
+    let discoveryOutcome: DiscoveryOutcome | null = null;
+    if (probeResult.status === "SUCCESS" && server.osType === "LINUX" && server.credential) {
+      try {
+        discoveryOutcome = await AgentDiscoveryService.discoverForServer(server.id);
+      } catch (error) {
+        console.error("Error en escaneo del agente tras prueba de conexión:", error);
+      }
+    }
+
     return {
       serverId: server.id,
       status: probeResult.status,
       durationMs: probeResult.durationMs,
       diagnosticSummary: probeResult.diagnosticSummary,
       checkedAt: new Date(),
+      discovery: discoveryOutcome
+        ? {
+            ok: discoveryOutcome.ok,
+            motivo: discoveryOutcome.motivo,
+            serviciosPersistidos: discoveryOutcome.metricas.persistidos,
+          }
+        : undefined,
     };
   }
 }
