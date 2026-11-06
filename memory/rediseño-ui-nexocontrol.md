@@ -105,3 +105,30 @@ backend real. Verificado E2E con `tests/verify-integracion.js` (14/14 checks).
   aunque se setee `ServerCertificateValidationCallback` ("Error inesperado de
   envío"); curl `-k` sí funciona → usar curl para todo el API de Coolify.
 - Los PNG de evidencia viven en `test-results/redesign/` (commit `0f573f2`).
+
+## Dominio de producción (actualización)
+
+- ⭐ Desde 2026-11-05 de noche la app sirve con HTTPS y Let's Encrypt en
+  `https://nexocontrol.elalto.gob.bo` (A → 172.16.100.22, configurado en
+  Coolify por el equipo del municipio NO por el agente). curl SIN `-k`
+  valida el certificado: el proxy emisario ya entrega ACME válido.
+- El FQDN viejo `http://gqe0...172.16.100.22.sslip.io` quedó DESHABilitado
+  (Traefik regeneró labels al Host nuevo → Go 404). Usar NUNCA más el sslip.
+- Barra superior contrastada (commit `9efae9e`): fondo `--sidebar-bg`
+  #151d2d, breadcrumb con tokens sidebar, EN LÍNEA verde claro (#7ee2b0).
+  Verificado visualmente con localStorage… captura 08-header-contraste.png.
+- El modificar `/95` NO aplica a variables CSS en Tailwind
+  (`bg-[var(--x)]/95` genera nada); usar el token completo sin opacidad.
+- En localhost el puerto 3000 puede estar ocupado por el panel demo viejo
+  (`src/server.js` de OTRO proyecto del dueño): NO matarlo; levantar el dev
+  del SIS con `pnpm dev --port 3002`.
+
+## Pendiente crítico (heredado)
+
+- `POST /api/v1/auth/login` en producción responde 500 con CUALQUIER
+  usuario (también inexistente) → falla en ruta común de
+  `AuthService.login()` (seed superadmin / auditoría). La BD está sana
+  (monitor corre, db push sincronizado, variables completas). El stack
+  exacto solo está en los logs del contenedor: el dueño debe pegar las
+  líneas «Error en POST /api/v1/auth/login» del panel (Logs) para
+  diagnosticar. El login en producción funcionaba antes del día 2026-11-05.
