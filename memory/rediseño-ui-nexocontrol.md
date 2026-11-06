@@ -144,6 +144,19 @@ backend real. Verificado E2E con `tests/verify-integracion.js` (14/14 checks).
   - Cert LE sigue default (TRAEFIK DEFAULT CERT) a la fecha; la app
     responde 200 con -k en producción; pendiente log del proxy/NAT.
 
+## Re-registro de servidores retirados (2026-11-06, commit `69aaaf7`)
+
+- El retiro es soft-delete (lifeCycle `RETIRED`) para preservar auditoría,
+  así que re-agregar un servidor con el MISMO nombre chocaba con el
+  chequeo de unicidad de `createServer` («Ya existe…»).
+- Corregido: si el único registro con ese nombre está RETIRED, se libera
+  el nombre renombrándolo a `<nombre>-retirado-<YYYYMMDDHHMMSS>-<id8>`
+  (≤100 chars, único garantizado, evento `METADATA_UPDATED` de auditoría)
+  y el alta procede íntegro con su escaneo SSH inicial y credencial nueva.
+  El `SERVER_CREATED` nuevo audita `renombroRetirado` cuando aplica.
+- El monitor semanal solo itera ACTIVE, así que la unidad renombrada
+  queda dormida y visible solo en reportes/auditoría.
+
 ## Pendiente crítico (heredado)
 
 - `POST /api/v1/auth/login` en producción responde 500 con CUALQUIER
