@@ -132,3 +132,35 @@ backend real. Verificado E2E con `tests/verify-integracion.js` (14/14 checks).
   exacto solo está en los logs del contenedor: el dueño debe pegar las
   líneas «Error en POST /api/v1/auth/login» del panel (Logs) para
   diagnosticar. El login en producción funcionaba antes del día 2026-11-05.
+
+## Integración del agente SSH al backend (2026-11-05, commit `32946b0`)
+
+- `SshAgentProbe` (`src/infrastructure/network/ssh-agent-probe.ts`):
+  `conn.exec("bash -s -u")` transmitiendo `scripts/nexo_agent.sh` por
+  stdin (nunca se instala en el remoto), timeouts handshake 6 s / global
+  25 s, cap stdout 512 KB, clasificación de errores idéntica a SshProbe.
+- `AgentDiscoveryService` (`agent-discovery.service.ts` + mapper puro
+  `agent-payload-mapper.ts`): escaneo SOLO a demanda —jamás en el tick de
+  60 s— con guard anti-scaneos en vuelo por servidor, parseo JSON estricto
+  (tolera únicamente BOM + espacios perimetrales), doble upsert por
+  `(serverId, name)` → los servicios creados a mano nunca se eliminan.
+  Mapeo: systemd active→RUNNING, inactive→STOPPED, failed→ERROR;
+  docker running→RUNNING, exited/created/paused→STOPPED, dead→ERROR;
+  primer puerto host parseado de `puertos` (`0.0.0.0:8080->80/tcp`→8080).
+- Ganchos: `createServer` (tras handshake SUCCESS), `testConnection`
+  (discovery en la respuesta, campo `discovery`), PATCH de rotación
+  (post-tx si cambió credencial/IP/puerto) y endpoint manual
+  `POST /servers/[id]/discover-services` (SuperAdmin, auditoría
+  `SERVICES_DISCOVERED` agregada a `AUDIT_ACTIONS`).
+- Suite: 176/176 tests (16 nuevos del mapper), tsc y build limpios.
+  El script NUNCA lee otros modos: credencial descifrada en memoria
+  (AES-GCM) solo durante la ejecución.
+- ⚠️ Post-deploy `xh3yxxcftwujmztg9fwjgijc` (finished, app
+  running:healthy) Traefik quedó sirviendo el TRAEFIK DEFAULT CERT para
+  el dominio: HTTPS estricto falla (curl sin -k → 000) aunque la app
+  responde 200 con -k, :80 → 302 a https y el desafío ACME routes ok.
+  Reinicio del proxy (API /proxy/restart) NO lo resolvió. Sospechas:
+  acme.json vaciado en el reinicio de Traefik de 03:28 UTC o racha
+  externa (NAT 80/443 pública / rate-limit LE). Falta ver el log del
+  proxy en el panel (Servers → Proxy → Logs) o el estado del NAT
+  público — intercambio con el dueño pendiente.
