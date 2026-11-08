@@ -25,6 +25,7 @@ import { MaintenanceModal } from "@/components/servers/MaintenanceModal";
 import { DecommissionDialog } from "@/components/servers/DecommissionDialog";
 import type { ServiceItem } from "@/components/servers/ServiceCard";
 import { ServiceTable } from "@/components/servers/ServiceTable";
+import { EditServiceModal } from "@/components/servers/EditServiceModal";
 import { useServerMonitor } from "@/components/servers/useServerMonitor";
 import { emitCatalogChange } from "@/lib/catalog-events";
 
@@ -80,6 +81,7 @@ export default function ServerDetailPage({ params }: { params: Promise<{ id: str
   const [showAddService, setShowAddService] = useState(false);
   const [addServiceForm, setAddServiceForm] = useState({ name: "", description: "", port: "", endpoint: "", processName: "" });
   const [addingService, setAddingService] = useState(false);
+  const [editingService, setEditingService] = useState<ServiceItem | null>(null);
 
   // Modals state
   const [isMaintenanceOpen, setIsMaintenanceOpen] = useState(false);
@@ -523,7 +525,16 @@ export default function ServerDetailPage({ params }: { params: Promise<{ id: str
               </div>
             </div>
           ) : (
-            <ServiceTable services={displayServices} host={server.ipAddress} />
+            <ServiceTable
+              services={displayServices}
+              host={server.ipAddress}
+              serverId={server.id}
+              onEditService={(svc) => setEditingService(svc)}
+              onServiceDeleted={async () => {
+                await fetchServices();
+                void refresh(true);
+              }}
+            />
           )}
         </div>
       </div>
@@ -607,6 +618,18 @@ export default function ServerDetailPage({ params }: { params: Promise<{ id: str
       )}
 
       {/* Modales */}
+      <EditServiceModal
+        isOpen={Boolean(editingService)}
+        onClose={() => setEditingService(null)}
+        onSuccess={async () => {
+          await fetchServices();
+          void refresh(true);
+        }}
+        serverId={server.id}
+        serverHost={server.ipAddress}
+        service={editingService}
+      />
+
       <MaintenanceModal
         serverId={server.id}
         serverName={server.name}

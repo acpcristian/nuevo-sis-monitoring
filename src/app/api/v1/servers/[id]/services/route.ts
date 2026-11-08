@@ -89,9 +89,23 @@ export async function PUT(
     }
     const validated = UpdateServiceSchema.parse(updateData);
 
+    const updatePayload: {
+      name?: string;
+      description?: string | null;
+      port?: number | null;
+      endpoint?: string | null;
+      processName?: string | null;
+    } = {};
+
+    if (validated.name !== undefined) updatePayload.name = validated.name;
+    if (validated.description !== undefined) updatePayload.description = validated.description;
+    if (validated.port !== undefined) updatePayload.port = validated.port;
+    if (validated.endpoint !== undefined) updatePayload.endpoint = validated.endpoint === "" ? null : validated.endpoint;
+    if (validated.processName !== undefined) updatePayload.processName = validated.processName;
+
     const service = await prisma.serverService.update({
       where: { id: serviceId, serverId: id },
-      data: validated,
+      data: updatePayload,
     });
 
     return NextResponse.json(service);

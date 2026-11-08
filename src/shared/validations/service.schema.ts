@@ -13,10 +13,10 @@ export const CreateServiceSchema = z.object({
 
 export const UpdateServiceSchema = z.object({
   name: z.string().min(1).max(100).optional(),
-  description: z.string().max(500).optional(),
-  port: z.coerce.number().min(1).max(65535).optional(),
-  endpoint: z.string().url().optional(),
-  processName: z.string().max(200).optional(),
+  description: z.string().max(500).nullish(),
+  port: z.coerce.number().min(1).max(65535).nullish(),
+  endpoint: z.string().url().nullish().or(z.literal("")),
+  processName: z.string().max(200).nullish(),
 });
 
 export type CreateServiceInput = z.infer<typeof CreateServiceSchema>;
