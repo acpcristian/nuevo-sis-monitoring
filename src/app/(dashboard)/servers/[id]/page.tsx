@@ -534,6 +534,10 @@ export default function ServerDetailPage({ params }: { params: Promise<{ id: str
                 await fetchServices();
                 void refresh(true);
               }}
+              onActionComplete={async () => {
+                await fetchServices();
+                void refresh(true);
+              }}
             />
           )}
         </div>

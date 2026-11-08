@@ -97,28 +97,68 @@ export function mapEstadoToServiceStatus(estado: unknown): ServiceStatus {
  * Extrae el primer puerto publicado de la cadena de `docker ps`:
  * "0.0.0.0:8080->80/tcp, [::]:8080->80/tcp" → 8080. Devuelve null si no hay mapeo.
  */
-export function extraerPrimerPuertoPublicado(puertos: unknown): number | null {
-  if (typeof puertos !== "string" || puertos.trim().length === 0) return null;
-  const match = puertos.match(/:(\d+)->/);
-  const grupo = match?.[1];
-  if (!grupo) return null;
-  const puerto = Number.parseInt(grupo, 10);
-  if (!Number.isInteger(puerto) || puerto <= 0 || puerto > 65535) return null;
-  return puerto;
+export function extraerPrimerPuertoPublicado(puertos: unknown, nombreOImagen?: string): number | null {
+  if (typeof puertos === "string" && puertos.trim().length > 0) {
+    const match = puertos.match(/:(\d+)->/);
+    const grupo = match?.[1];
+    if (grupo) {
+      const puerto = Number.parseInt(grupo, 10);
+      if (Number.isInteger(puerto) && puerto > 0 && puerto <= 65535) return puerto;
+    }
+    // Fallback: buscar cualquier puerto expuesto simple (ej: "80/tcp")
+    const matchSimple = puertos.match(/(\d+)\/tcp/);
+    if (matchSimple?.[1]) {
+      const p = Number.parseInt(matchSimple[1], 10);
+      if (Number.isInteger(p) && p > 0 && p <= 65535) return p;
+    }
+  }
+
+  // Fallback por convención de imagen o nombre de contenedor
+  if (nombreOImagen) {
+    const lower = nombreOImagen.toLowerCase();
+    if (lower.includes("minio")) return 9000;
+    if (lower.includes("nginx") || lower.includes("apache") || lower.includes("caddy") || lower.includes("traefik")) return 80;
+    if (lower.includes("postgres")) return 5432;
+    if (lower.includes("mysql") || lower.includes("mariadb")) return 3306;
+    if (lower.includes("redis")) return 6379;
+    if (lower.includes("mongo")) return 27017;
+  }
+
+  return null;
 }
 
 /**
  * Extrae el primer puerto en ESCUCHA de la cadena que arma el agente con
  * `ss -tlnp`/`netstat -tlnp`: "0.0.0.0:80, [::]:80" → 80. Devuelve null si no hay.
  */
-export function extraerPuertoEscucha(puertos: unknown): number | null {
-  if (typeof puertos !== "string") return null;
-  const primer = puertos.split(",")[0]?.trim() ?? "";
-  const match = primer.match(/:(\d+)$/);
-  if (!match?.[1]) return null;
-  const puerto = Number.parseInt(match[1], 10);
-  if (!Number.isInteger(puerto) || puerto <= 0 || puerto > 65535) return null;
-  return puerto;
+export function extraerPuertoEscucha(puertos: unknown, nombreServicio?: string): number | null {
+  if (typeof puertos === "string" && puertos.trim().length > 0) {
+    const primer = puertos.split(",")[0]?.trim() ?? "";
+    const match = primer.match(/:(\d+)$/);
+    if (match?.[1]) {
+      const puerto = Number.parseInt(match[1], 10);
+      if (Number.isInteger(puerto) && puerto > 0 && puerto <= 65535) return puerto;
+    }
+    // Si viene simplemente como número directo
+    const numDirecto = Number.parseInt(primer, 10);
+    if (Number.isInteger(numDirecto) && numDirecto > 0 && numDirecto <= 65535) {
+      return numDirecto;
+    }
+  }
+
+  // Fallback por convención de servicio systemd
+  if (nombreServicio) {
+    const s = nombreServicio.toLowerCase();
+    if (s.includes("nginx") || s.includes("apache") || s.includes("httpd") || s.includes("caddy")) return 80;
+    if (s.includes("minio")) return 9000;
+    if (s.includes("postgres")) return 5432;
+    if (s.includes("mysql") || s.includes("mariadb")) return 3306;
+    if (s.includes("redis")) return 6379;
+    if (s.includes("mongo")) return 27017;
+    if (s.includes("ssh")) return 22;
+  }
+
+  return null;
 }
 
 /** Coacciona un campo textual del payload a string|null defensivo. */
@@ -143,7 +183,7 @@ export function mapAgentPayloadToServiceCandidates(payload: AgentePayload): Agen
         name: nombre,
         status: mapEstadoToServiceStatus(contenedor.estado),
         description: texto(contenedor.imagen),
-        port: extraerPrimerPuertoPublicado(contenedor.puertos),
+        port: extraerPrimerPuertoPublicado(contenedor.puertos, `${nombre} ${texto(contenedor.imagen) ?? ""}`),
         processName: texto(contenedor.imagen),
         origen: "DOCKER",
       });
@@ -163,7 +203,7 @@ export function mapAgentPayloadToServiceCandidates(payload: AgentePayload): Agen
         name: nombre,
         status: mapEstadoToServiceStatus(unidad.estado),
         description: texto(unidad.descripcion),
-        port: extraerPuertoEscucha(unidad.puertos),
+        port: extraerPuertoEscucha(unidad.puertos, `${nombre} ${texto(unidad.descripcion) ?? ""}`),
         processName: null,
         origen: "SYSTEMD",
       });

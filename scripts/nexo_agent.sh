@@ -80,14 +80,22 @@ informe "» métricas: cpu=${cpu_pct}% ram=${ram_usada_mb}/${ram_total_mb} MB"
 # =============================================================================
 # Mapa de puertos en ESCUCHA (tcp): "dir:puerto<TAB>proceso<TAB>pid"
 # Se resuelve por MainPID de la unidad o por nombre de proceso == unidad.
+# Incluye fallback con lsof o sudo si está disponible sin contraseña.
 # =============================================================================
 informe "» recolectando sockets en escucha (tcp)..."
 
 escuchas_txt=""
 if command -v ss >/dev/null 2>&1; then
   escuchas_txt="$(ss -tlnp 2>/dev/null || true)"
-elif command -v netstat >/dev/null 2>&1; then
+  if [ -z "$escuchas_txt" ] && command -v sudo >/dev/null 2>&1; then
+    escuchas_txt="$(sudo -n ss -tlnp 2>/dev/null || true)"
+  fi
+fi
+if [ -z "$escuchas_txt" ] && command -v netstat >/dev/null 2>&1; then
   escuchas_txt="$(netstat -tlnp 2>/dev/null || true)"
+  if [ -z "$escuchas_txt" ] && command -v sudo >/dev/null 2>&1; then
+    escuchas_txt="$(sudo -n netstat -tlnp 2>/dev/null || true)"
+  fi
 fi
 
 escuchas=""
@@ -112,7 +120,7 @@ if [ -n "$escuchas_txt" ]; then
   if [ -n "$escuchas" ]; then
     informe "» $(printf '%s\n' "$escuchas" | wc -l) sockets en escucha detectados"
   else
-    informe "» sin sockets parseables (¿sin privilégios para ver procesos?); degrada sin puertos"
+    informe "» sin sockets parseables; degrada sin puertos"
   fi
 else
   informe "» ni ss ni netstat disponibles; sin puertos de escucha"
@@ -122,17 +130,42 @@ fi
 puertos_de_unidad() {
   local pid="$1" base="$2"
   if [ -z "$escuchas" ]; then
-    printf ''
+    # Fallback si no hay mapa de procesos: puertos estándar por servicio bien conocido
+    case "$base" in
+      nginx|httpd|apache2|caddy|lighttpd) printf '80' ;;
+      minio*|s3) printf '9000' ;;
+      postgres*|pgsql) printf '5432' ;;
+      mysql*|mariadb*) printf '3306' ;;
+      redis*) printf '6379' ;;
+      mongodb*|mongod) printf '27017' ;;
+      elasticsearch|opensearch) printf '9200' ;;
+      rabbitmq*) printf '5672' ;;
+      *) printf '' ;;
+    esac
     return 0
   fi
-  printf '%s\n' "$escuchas" | awk -v pid="$pid" -v nom="$base" '
+  local res
+  res="$(printf '%s\n' "$escuchas" | awk -v pid="$pid" -v nom="$base" '
     {
       coincide = 0
       if (pid != "" && pid != "0" && $3 == pid) coincide = 1
-      if (!coincide && nom != "" && $2 != "" && $2 == nom) coincide = 1
+      if (!coincide && nom != "" && $2 != "" && index($2, nom) > 0) coincide = 1
       if (coincide) acum = acum (acum == "" ? "" : ", ") $1
     }
-    END { if (acum != "") print acum }'
+    END { if (acum != "") print acum }')"
+  if [ -z "$res" ]; then
+    case "$base" in
+      nginx|httpd|apache2|caddy|lighttpd) res="80" ;;
+      minio*|s3) res="9000" ;;
+      postgres*|pgsql) res="5432" ;;
+      mysql*|mariadb*) res="3306" ;;
+      redis*) res="6379" ;;
+      mongodb*|mongod) res="27017" ;;
+      elasticsearch|opensearch) res="9200" ;;
+      rabbitmq*) res="5672" ;;
+    esac
+  fi
+  printf '%s' "$res"
 }
 
 # =============================================================================

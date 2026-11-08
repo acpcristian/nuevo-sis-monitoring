@@ -112,8 +112,14 @@ async function ejecutarEscaneo(params: ParametrosConexionAgente): Promise<Discov
   // Tener lastResult evita que un estado del agente aparezca como opaco.
   const sello = `Verificado por agente SSH (solo lectura)`;
   for (const candidato of candidatos) {
-    const lastResult = candidato.port
-      ? `${sello} — escuchando en el puerto ${candidato.port}`
+    const port = candidato.port;
+    const endpoint =
+      port !== null && (port === 80 || port === 443 || port >= 1000)
+        ? `${port === 443 ? "https" : "http"}://${params.ipAddress}:${port}/`
+        : null;
+
+    const lastResult = port
+      ? `${sello} — escuchando en el puerto ${port}`
       : `${sello} — servicio local sin puertos publicados`;
 
     await prisma.serverService.upsert({
@@ -124,6 +130,7 @@ async function ejecutarEscaneo(params: ParametrosConexionAgente): Promise<Discov
         status: candidato.status,
         description: candidato.description,
         port: candidato.port,
+        endpoint,
         processName: candidato.processName,
         lastCheckedAt,
         lastResult,
@@ -132,6 +139,8 @@ async function ejecutarEscaneo(params: ParametrosConexionAgente): Promise<Discov
         status: candidato.status,
         description: candidato.description,
         port: candidato.port,
+        // Si no tenía endpoint, se auto-asigna
+        endpoint: endpoint ?? undefined,
         processName: candidato.processName,
         lastCheckedAt,
         lastResult,
