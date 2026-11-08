@@ -130,9 +130,17 @@ export function ServiceTable({
                 </td>
 
                 <td className="max-w-[220px] px-4 py-3.5">
-                  <span className="line-clamp-2 text-slate-600">
+                  <div className="line-clamp-2 text-slate-600">
                     {service.description || "—"}
-                  </span>
+                  </div>
+                  {/* Etiqueta informativa para servicios del sistema operativo/kernel */}
+                  {(service.name.startsWith("kmod") ||
+                    service.name.startsWith("systemd") ||
+                    service.name === "containerd.service") && (
+                    <span className="inline-block mt-1 text-[10px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded border border-slate-200">
+                      Servicio base SO (no requiere puerto web)
+                    </span>
+                  )}
                 </td>
 
                 {/* Columna ESTADO con SWITCH (Prendido / Apagado / Fallido) */}

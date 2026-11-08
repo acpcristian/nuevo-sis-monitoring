@@ -168,6 +168,15 @@ function texto(valor: unknown): string | null {
   return recortado.length > 0 ? recortado : null;
 }
 
+// Lista negra de unidades auxiliares o de inicialización puntual que no representan servicios de aplicación
+const EXCLUDED_SYSTEMD_UNITS = [
+  "kmod-static-nodes.service",
+  "systemd-tpm2-setup-early.service",
+  "systemd-tpm2-setup.service",
+  "systemd-modules-load.service",
+  "systemd-sysctl.service",
+];
+
 /** Convierte el payload validado en candidatos de servicios listos para upsert. */
 export function mapAgentPayloadToServiceCandidates(payload: AgentePayload): AgenteServicioCandidate[] {
   const candidatos: AgenteServicioCandidate[] = [];
@@ -199,6 +208,12 @@ export function mapAgentPayloadToServiceCandidates(payload: AgentePayload): Agen
       const unidad = crudo as AgenteServicioSystemd;
       const nombre = texto(unidad.nombre);
       if (!nombre) continue;
+
+      // Filtrar unidades espurias del sistema que no son servicios monitoreables
+      if (EXCLUDED_SYSTEMD_UNITS.includes(nombre.toLowerCase())) {
+        continue;
+      }
+
       candidatos.push({
         name: nombre,
         status: mapEstadoToServiceStatus(unidad.estado),

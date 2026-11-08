@@ -59,45 +59,48 @@ export class ServiceControlService {
       ? `echo '${secret.replace(/'/g, "'\\''")}' | sudo -S -p ''`
       : "sudo -n";
 
-    let cmd = "";
+    let rawCmd = "";
     if (isDocker && !serviceName.endsWith(".service")) {
       switch (action) {
         case "start":
-          cmd = `docker start ${serviceName} || ${sudoPrefix} docker start ${serviceName}`;
+          rawCmd = `docker start ${serviceName} || ${sudoPrefix} docker start ${serviceName}`;
           break;
         case "stop":
-          cmd = `docker stop ${serviceName} || ${sudoPrefix} docker stop ${serviceName}`;
+          rawCmd = `docker stop ${serviceName} || ${sudoPrefix} docker stop ${serviceName}`;
           break;
         case "restart":
-          cmd = `docker restart ${serviceName} || ${sudoPrefix} docker restart ${serviceName}`;
+          rawCmd = `docker restart ${serviceName} || ${sudoPrefix} docker restart ${serviceName}`;
           break;
         case "enable":
-          cmd = `docker update --restart=always ${serviceName} || ${sudoPrefix} docker update --restart=always ${serviceName}`;
+          rawCmd = `docker update --restart=always ${serviceName} || ${sudoPrefix} docker update --restart=always ${serviceName}`;
           break;
         case "disable":
-          cmd = `docker update --restart=no ${serviceName} || ${sudoPrefix} docker update --restart=no ${serviceName}`;
+          rawCmd = `docker update --restart=no ${serviceName} || ${sudoPrefix} docker update --restart=no ${serviceName}`;
           break;
       }
     } else {
-      // systemd
+      // systemd: agregar --no-ask-password para evitar cuelgues interactivos de PolicyKit
       switch (action) {
         case "start":
-          cmd = `systemctl start ${serviceName} || ${sudoPrefix} systemctl start ${serviceName}`;
+          rawCmd = `systemctl start --no-ask-password ${serviceName} || ${sudoPrefix} systemctl start --no-ask-password ${serviceName}`;
           break;
         case "stop":
-          cmd = `systemctl stop ${serviceName} || ${sudoPrefix} systemctl stop ${serviceName}`;
+          rawCmd = `systemctl stop --no-ask-password ${serviceName} || ${sudoPrefix} systemctl stop --no-ask-password ${serviceName}`;
           break;
         case "restart":
-          cmd = `systemctl restart ${serviceName} || ${sudoPrefix} systemctl restart ${serviceName}`;
+          rawCmd = `systemctl restart --no-ask-password ${serviceName} || ${sudoPrefix} systemctl restart --no-ask-password ${serviceName}`;
           break;
         case "enable":
-          cmd = `systemctl enable ${serviceName} || ${sudoPrefix} systemctl enable ${serviceName}`;
+          rawCmd = `systemctl enable --no-ask-password ${serviceName} || ${sudoPrefix} systemctl enable --no-ask-password ${serviceName}`;
           break;
         case "disable":
-          cmd = `systemctl disable ${serviceName} || ${sudoPrefix} systemctl disable ${serviceName}`;
+          rawCmd = `systemctl disable --no-ask-password ${serviceName} || ${sudoPrefix} systemctl disable --no-ask-password ${serviceName}`;
           break;
       }
     }
+
+    // Encapsular en timeout y forzar salida limpia de subshell
+    const cmd = `timeout 12 sh -c "${rawCmd.replace(/"/g, '\\"')}"`;
 
     return new Promise<ServiceControlResult>((resolve) => {
       const conn = new Client();
@@ -125,11 +128,11 @@ export class ServiceControlService {
           output: stdout,
           error: "Tiempo de espera agotado al ejecutar acción.",
         });
-      }, 15000);
+      }, 20000);
 
       conn
         .on("ready", () => {
-          conn.exec(cmd, { pty: true }, (err, stream) => {
+          conn.exec(cmd, { pty: false }, (err, stream) => {
             if (err) {
               clearTimeout(timer);
               finish({
