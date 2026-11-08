@@ -54,42 +54,47 @@ export class ServiceControlService {
 
     const isDocker = service.description?.includes("/") || !serviceName.endsWith(".service");
 
+    const isPasswordAuth = cred.credentialType === "PASSWORD";
+    const sudoPrefix = isPasswordAuth && secret
+      ? `echo '${secret.replace(/'/g, "'\\''")}' | sudo -S -p ''`
+      : "sudo -n";
+
     let cmd = "";
     if (isDocker && !serviceName.endsWith(".service")) {
       switch (action) {
         case "start":
-          cmd = `docker start ${serviceName}`;
+          cmd = `docker start ${serviceName} || ${sudoPrefix} docker start ${serviceName}`;
           break;
         case "stop":
-          cmd = `docker stop ${serviceName}`;
+          cmd = `docker stop ${serviceName} || ${sudoPrefix} docker stop ${serviceName}`;
           break;
         case "restart":
-          cmd = `docker restart ${serviceName}`;
+          cmd = `docker restart ${serviceName} || ${sudoPrefix} docker restart ${serviceName}`;
           break;
         case "enable":
-          cmd = `docker update --restart=always ${serviceName}`;
+          cmd = `docker update --restart=always ${serviceName} || ${sudoPrefix} docker update --restart=always ${serviceName}`;
           break;
         case "disable":
-          cmd = `docker update --restart=no ${serviceName}`;
+          cmd = `docker update --restart=no ${serviceName} || ${sudoPrefix} docker update --restart=no ${serviceName}`;
           break;
       }
     } else {
       // systemd
       switch (action) {
         case "start":
-          cmd = `systemctl start ${serviceName} || sudo systemctl start ${serviceName}`;
+          cmd = `systemctl start ${serviceName} || ${sudoPrefix} systemctl start ${serviceName}`;
           break;
         case "stop":
-          cmd = `systemctl stop ${serviceName} || sudo systemctl stop ${serviceName}`;
+          cmd = `systemctl stop ${serviceName} || ${sudoPrefix} systemctl stop ${serviceName}`;
           break;
         case "restart":
-          cmd = `systemctl restart ${serviceName} || sudo systemctl restart ${serviceName}`;
+          cmd = `systemctl restart ${serviceName} || ${sudoPrefix} systemctl restart ${serviceName}`;
           break;
         case "enable":
-          cmd = `systemctl enable ${serviceName} || sudo systemctl enable ${serviceName}`;
+          cmd = `systemctl enable ${serviceName} || ${sudoPrefix} systemctl enable ${serviceName}`;
           break;
         case "disable":
-          cmd = `systemctl disable ${serviceName} || sudo systemctl disable ${serviceName}`;
+          cmd = `systemctl disable ${serviceName} || ${sudoPrefix} systemctl disable ${serviceName}`;
           break;
       }
     }
@@ -124,7 +129,7 @@ export class ServiceControlService {
 
       conn
         .on("ready", () => {
-          conn.exec(cmd, (err, stream) => {
+          conn.exec(cmd, { pty: true }, (err, stream) => {
             if (err) {
               clearTimeout(timer);
               finish({
