@@ -4,6 +4,8 @@ import type { Prisma } from "@prisma/client";
 import { classifyLog, sanitizeMessage, containsSensitiveData } from "@/infrastructure/log";
 import { AuditService } from "@/core/services/audit.service";
 import { LogCategory, LogSeverity, FreshnessState, ConfidenceLevel } from "@/core/domain/log.types";
+import { getCategoryKnowledge, joinKnowledgeText } from "@/core/domain/log-knowledge";
+import type { ServerService } from "@prisma/client";
 
 export interface IngestLogInput {
   serverId?: string;
@@ -19,6 +21,7 @@ export interface IngestLogInput {
 export interface IngestLogResult {
   eventId: string;
   category: LogCategory;
+  serviceId: string | null;
   sanitizedMessage: string;
   hasSensitiveData: boolean;
   dataFreshnessUpdated: boolean;
@@ -49,17 +52,47 @@ export class LogIngestionService {
     // 2. Sanitizar el mensaje (enmascarar datos sensibles)
     const { sanitized, hasSensitiveData } = sanitizeMessage(message);
 
-    // 3. Garantizar la fila de categoría (taxonomía idempotente)
+    // 3. Garantizar la fila de categoría (taxonomía idempotente) y sembrar
+    //    el conocimiento por defecto solo si la fila es nueva o aún no fue editada.
+    const knowledge = getCategoryKnowledge(resolvedCategory);
     const categoryModel = await prisma.logCategoryModel.upsert({
       where: { code: resolvedCategory },
-      create: { code: resolvedCategory, name: resolvedCategory },
-      update: {},
+      create: {
+        code: resolvedCategory,
+        name: knowledge.label,
+        description: knowledge.description,
+        commonCauses: joinKnowledgeText(knowledge.defaultCauses),
+        solutions: joinKnowledgeText(knowledge.defaultSolutions),
+      },
+      update: {
+        name: knowledge.label,
+      },
     });
+
+    // Autocura del contenido: si la categoría existente sigue vacía
+    // (nunca editada por el administrador), completar con el catálogo por defecto.
+    if (!categoryModel.description && !categoryModel.commonCauses && !categoryModel.solutions) {
+      await prisma.logCategoryModel.update({
+        where: { id: categoryModel.id },
+        data: {
+          description: knowledge.description,
+          commonCauses: joinKnowledgeText(knowledge.defaultCauses),
+          solutions: joinKnowledgeText(knowledge.defaultSolutions),
+        },
+      });
+    }
+
+    // 3.b Resolución del servicio responsable (para atribuir el log a un servicio).
+    //     El agente indica el servicio vía metadata: serviceId o serviceName;
+    //     si no existe todavía se registra como servicio UNKNOWN del servidor.
+    const service = await this.resolveService(serverId, metadata);
+    const serviceId = service?.id ?? null;
 
     // 3. Persistir el evento de log (rawLog append-only; nunca vacío)
     const event = await prisma.logEvent.create({
       data: {
         serverId: serverId ?? null,
+        serviceId,
         categoryId: categoryModel.id,
         eventTimestamp,
         eventType,
@@ -98,10 +131,53 @@ export class LogIngestionService {
     return {
       eventId: event.id,
       category: resolvedCategory,
+      serviceId,
       sanitizedMessage: event.sanitizedMessage,
       hasSensitiveData,
       dataFreshnessUpdated: true,
     };  }
+
+  /**
+   * Resuelve el servicio al que pertenece el evento usando la metadata del
+   * log (serviceId o serviceName). Crea el servicio como UNKNOWN si el agente
+   * menciona uno no registrado; nunca rompe la ingesta por este motivo.
+   */
+  private static async resolveService(
+    serverId: string | undefined,
+    metadata: Record<string, unknown> | null | undefined
+  ): Promise<ServerService | null> {
+    if (!serverId || !metadata) return null;
+
+    const metaServiceId = typeof metadata.serviceId === "string" ? metadata.serviceId : null;
+    const metaServiceName =
+      typeof metadata.serviceName === "string" ? metadata.serviceName.trim() : null;
+    if (!metaServiceId && !metaServiceName) return null;
+
+    try {
+      if (metaServiceId) {
+        const byId = await prisma.serverService.findFirst({
+          where: { id: metaServiceId, serverId },
+        });
+        if (byId) return byId;
+      }
+
+      if (metaServiceName) {
+        const byName = await prisma.serverService.findFirst({
+          where: { serverId, name: metaServiceName },
+        });
+        if (byName) return byName;
+
+        return prisma.serverService.create({
+          data: { serverId, name: metaServiceName, status: "UNKNOWN" },
+        });
+      }
+      return null;
+    } catch (error) {
+      // La atribución de servicio es enriquecimiento: no debe bloquear la ingesta.
+      console.error("No se pudo resolver el servicio del evento de log:", error);
+      return null;
+    }
+  }
 
   /**
    * Actualiza el estado de frescura basado en la última telemetría recibida.

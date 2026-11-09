@@ -56,6 +56,35 @@ export const FreshnessStateSchema = z.enum([
   "UNREACHABLE",
 ]);
 
+/**
+ * CRUD del catálogo de categorías de log (análisis: ¿por qué ocurre?,
+ * ¿cómo resolverlo?). commonCauses y solutions se guardan como texto con
+ * un elemento por línea.
+ */
+export const LogCategoryCreateSchema = z.object({
+  code: z
+    .string()
+    .min(2)
+    .max(50)
+    .regex(/^[A-Z][A-Z0-9_]*$/, "El código debe estar en MAYÚSCULAS_CON_GUIONES_BAJOS"),
+  name: z.string().min(1, "El nombre es requerido").max(100),
+  description: z.string().max(2000).nullish(),
+  commonCauses: z.string().max(5000).nullish(),
+  solutions: z.string().max(5000).nullish(),
+  priority: z.coerce.number().int().min(1).max(10).optional(),
+});
+
+export const LogCategoryUpdateSchema = LogCategoryCreateSchema.omit({ code: true }).extend({
+  name: z.string().min(1, "El nombre es requerido").max(100).optional(),
+  description: z.string().max(2000).nullish(),
+  commonCauses: z.string().max(5000).nullish(),
+  solutions: z.string().max(5000).nullish(),
+  priority: z.coerce.number().int().min(1).max(10).optional(),
+});
+
+export type LogCategoryCreateInput = z.infer<typeof LogCategoryCreateSchema>;
+export type LogCategoryUpdateInput = z.infer<typeof LogCategoryUpdateSchema>;
+
 export type IngestLogInput = z.infer<typeof IngestLogSchema>;
 export type CreateDiagnosisInput = z.infer<typeof CreateDiagnosisSchema>;
 export type LogListFilterInput = z.infer<typeof LogListFilterSchema>;

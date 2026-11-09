@@ -18,8 +18,16 @@ interface LogEventDetailData {
   serverId: string | null;
   serverName: string | null;
   serverIp: string | null;
+  serviceId: string | null;
+  serviceName: string | null;
+  serviceStatus: string | null;
+  servicePort: number | null;
+  serviceEndpoint: string | null;
   category: string;
   categoryName: string;
+  categoryDescription?: string | null;
+  categoryCommonCauses?: string | null;
+  categorySolutions?: string | null;
   eventTimestamp: string;
   ingestionTimestamp: string;
   processedTimestamp: string | null;

@@ -125,6 +125,7 @@ model ServerService {
   updatedAt   DateTime      @updatedAt @map("updated_at")
 
   server      Server        @relation(fields: [serverId], references: [id], onDelete: Cascade)
+  logEvents   LogEvent[]
 
   @@index([serverId, status])
   @@index([serverId, name])
@@ -228,13 +229,17 @@ enum AlertStatus {
   RESOLVED
 }
 
+/// Catálogo de categorías de log: descripción, causas comunes y soluciones
+/// editables desde el CRUD (si están vacías, la UI usa el catálogo por defecto).
 model LogCategoryModel {
-  id        String      @id @default(uuid())
-  code      String      @unique
-  name      String
+  id          String      @id @default(uuid())
+  code        String      @unique
+  name        String
   description String?
-  priority  Int         @default(5)
-  events    LogEvent[]
+  commonCauses String?    @db.Text @map("common_causes")
+  solutions    String?    @db.Text
+  priority    Int         @default(5)
+  events      LogEvent[]
 
   @@map("log_categories")
 }
@@ -242,6 +247,7 @@ model LogCategoryModel {
 model LogEvent {
   id                String         @id @default(uuid())
   serverId          String?        @map("server_id")
+  serviceId         String?        @map("service_id")
   categoryId        String         @map("category_id")
   category          LogCategoryModel @relation(fields: [categoryId], references: [id])
   eventTimestamp    DateTime       @map("event_timestamp")
@@ -255,10 +261,12 @@ model LogEvent {
   isUntrusted       Boolean        @default(true) @map("is_untrusted")
 
   server            Server?        @relation(fields: [serverId], references: [id], onDelete: SetNull)
+  service           ServerService? @relation(fields: [serviceId], references: [id], onDelete: SetNull)
   diagnoses         IncidentDiagnosis[]
   alerts            LogAlert[]
   incidents         Incident[]
 
+  @@index([serviceId, eventTimestamp(sort: Desc)])
   @@index([serverId, eventTimestamp(sort: Desc)])
   @@index([categoryId, eventTimestamp(sort: Desc)])
   @@index([ingestionTimestamp(sort: Desc)])

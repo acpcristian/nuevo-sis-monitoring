@@ -2,20 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { RefreshCw, Server, AlertTriangle, FileText, Shield, Activity, TrendingUp } from "lucide-react";
-import { LogTable } from "@/components/logs/LogTable";
-
-export interface LogListItem {
-  id: string;
-  serverId: string | null;
-  serverName: string | null;
-  category: string;
-  categoryName: string;
-  eventTimestamp: string;
-  ingestionTimestamp: string;
-  severity: string;
-  sanitizedMessage: string;
-  isUntrusted: boolean;
-}
+import { LogTable, type LogListItem } from "@/components/logs/LogTable";
 
 export default function LogsPage() {
   const [logs, setLogs] = useState<LogListItem[]>([]);

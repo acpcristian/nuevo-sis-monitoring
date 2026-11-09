@@ -21,7 +21,14 @@ export interface LogEventWithRelations {
   id: string;
   serverId: string | null;
   serverName: string | null;
+  serviceId: string | null;
+  serviceName: string | null;
+  serviceStatus: string | null;
   category: LogCategory;
+  categoryName: string;
+  categoryDescription: string | null;
+  categoryCommonCauses: string | null;
+  categorySolutions: string | null;
   eventTimestamp: Date;
   ingestionTimestamp: Date;
   processedTimestamp: Date | null;
@@ -84,8 +91,17 @@ export class LogQueryService {
           server: {
             select: { id: true, name: true },
           },
+          service: {
+            select: { id: true, name: true, status: true },
+          },
           category: {
-            select: { code: true, name: true },
+            select: {
+              code: true,
+              name: true,
+              description: true,
+              commonCauses: true,
+              solutions: true,
+            },
           },
         },
       }),
@@ -95,7 +111,14 @@ export class LogQueryService {
       id: item.id,
       serverId: item.serverId,
       serverName: item.server?.name ?? null,
+      serviceId: item.serviceId,
+      serviceName: item.service?.name ?? null,
+      serviceStatus: item.service?.status ?? null,
       category: item.category.code as LogCategory,
+      categoryName: item.category.name,
+      categoryDescription: item.category.description,
+      categoryCommonCauses: item.category.commonCauses,
+      categorySolutions: item.category.solutions,
       eventTimestamp: item.eventTimestamp,
       ingestionTimestamp: item.ingestionTimestamp,
       processedTimestamp: item.processedTimestamp,
@@ -126,8 +149,17 @@ export class LogQueryService {
         server: {
           select: { id: true, name: true, ipAddress: true },
         },
+        service: {
+          select: { id: true, name: true, status: true, port: true, endpoint: true },
+        },
         category: {
-          select: { code: true, name: true },
+          select: {
+            code: true,
+            name: true,
+            description: true,
+            commonCauses: true,
+            solutions: true,
+          },
         },
       },
     });
@@ -141,7 +173,16 @@ export class LogQueryService {
       serverId: event.serverId,
       serverName: event.server?.name ?? null,
       serverIp: event.server?.ipAddress ?? null,
+      serviceId: event.serviceId,
+      serviceName: event.service?.name ?? null,
+      serviceStatus: event.service?.status ?? null,
+      servicePort: event.service?.port ?? null,
+      serviceEndpoint: event.service?.endpoint ?? null,
       category: event.category.code as LogCategory,
+      categoryName: event.category.name,
+      categoryDescription: event.category.description,
+      categoryCommonCauses: event.category.commonCauses,
+      categorySolutions: event.category.solutions,
       eventTimestamp: event.eventTimestamp,
       ingestionTimestamp: event.ingestionTimestamp,
       processedTimestamp: event.processedTimestamp,

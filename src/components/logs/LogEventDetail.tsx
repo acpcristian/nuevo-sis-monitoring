@@ -1,7 +1,13 @@
 "use client";
 
 import React from "react";
-import { Clock, FileText, Key, Shield, AlertCircle } from "lucide-react";
+import { Clock, FileText, Key, Shield, AlertCircle, Wrench, HelpCircle, ClipboardList } from "lucide-react";
+import {
+  describeLogEvent,
+  describeSeverity,
+  splitKnowledgeText,
+  SERVICE_STATUS_LABELS,
+} from "@/core/domain/log-knowledge";
 
 interface LogEventDetailProps {
   event: {
@@ -9,8 +15,16 @@ interface LogEventDetailProps {
     serverId: string | null;
     serverName: string | null;
     serverIp: string | null;
+    serviceId: string | null;
+    serviceName: string | null;
+    serviceStatus: string | null;
+    servicePort: number | null;
+    serviceEndpoint: string | null;
     category: string;
     categoryName: string;
+    categoryDescription?: string | null;
+    categoryCommonCauses?: string | null;
+    categorySolutions?: string | null;
     eventTimestamp: string;
     ingestionTimestamp: string;
     processedTimestamp: string | null;
@@ -32,6 +46,22 @@ export function LogEventDetail({ event, canViewRaw }: LogEventDetailProps) {
     CRITICAL: "bg-rose-100 text-rose-800 border-rose-200",
   };
 
+  const summary = describeLogEvent({
+    category: event.category,
+    severity: event.severity,
+    eventType: event.eventType,
+    message: event.sanitizedMessage,
+  });
+
+  const curatedCauses = splitKnowledgeText(event.categoryCommonCauses);
+  const curatedSolutions = splitKnowledgeText(event.categorySolutions);
+  const causes = curatedCauses.length > 0 ? curatedCauses : summary.causes;
+  const solutions = curatedSolutions.length > 0 ? curatedSolutions : summary.solutions;
+
+  const serviceStatus = event.serviceStatus
+    ? SERVICE_STATUS_LABELS[event.serviceStatus] ?? { label: event.serviceStatus, badgeClass: "bg-slate-100 text-slate-600 border-slate-200" }
+    : null;
+
   return (
     <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 space-y-6">
       <div className="flex items-center justify-between">
@@ -46,6 +76,14 @@ export function LogEventDetail({ event, canViewRaw }: LogEventDetailProps) {
         >
           {event.severity}
         </span>
+      </div>
+
+      <div className="p-4 bg-indigo-50 border border-indigo-100 rounded-xl">
+        <h3 className="text-sm font-semibold text-indigo-900 mb-1">¿Qué significa este evento?</h3>
+        <p className="text-sm text-indigo-800 leading-relaxed">{summary.meaning}</p>
+        <p className="text-xs text-indigo-700 mt-2">
+          <span className="font-semibold">Severidad:</span> {describeSeverity(event.severity)}
+        </p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -113,12 +151,85 @@ export function LogEventDetail({ event, canViewRaw }: LogEventDetailProps) {
 
           <div className="p-3 bg-slate-50 rounded-lg border border-slate-100">
             <div className="flex items-center gap-2 mb-2">
+              <Wrench className="w-4 h-4 text-indigo-600" />
+              <h3 className="text-sm font-semibold text-slate-800">Servicio</h3>
+            </div>
+            <div className="space-y-1 text-sm">
+              <div className="flex justify-between gap-3">
+                <span className="text-slate-500">Nombre:</span>
+                <span className="font-medium text-slate-700 text-right">
+                  {event.serviceName || "Sin servicio identificado"}
+                </span>
+              </div>
+              {serviceStatus && (
+                <div className="flex justify-between gap-3">
+                  <span className="text-slate-500">Estado:</span>
+                  <span className={`px-2 py-0.5 rounded border text-[10px] font-medium ${serviceStatus.badgeClass}`}>
+                    {serviceStatus.label}
+                  </span>
+                </div>
+              )}
+              {event.servicePort && (
+                <div className="flex justify-between gap-3">
+                  <span className="text-slate-500">Puerto:</span>
+                  <span className="font-mono text-slate-700">{event.servicePort}</span>
+                </div>
+              )}
+              {event.serviceEndpoint && (
+                <div className="flex justify-between gap-3">
+                  <span className="text-slate-500">Endpoint:</span>
+                  <span className="font-mono text-slate-700 break-all text-right">{event.serviceEndpoint}</span>
+                </div>
+              )}
+              {!event.serviceName && (
+                <p className="text-xs text-slate-500">
+                  El agente no reportó el servicio (metadata.serviceName) para este evento.
+                </p>
+              )}
+            </div>
+          </div>
+
+          <div className="p-3 bg-slate-50 rounded-lg border border-slate-100">
+            <div className="flex items-center gap-2 mb-2">
               <Key className="w-4 h-4 text-indigo-600" />
               <h3 className="text-sm font-semibold text-slate-800">Tipo de Evento</h3>
             </div>
             <span className="font-mono text-slate-700 text-sm">{event.eventType || "—"}</span>
           </div>
         </div>
+      </div>
+
+      <div className="p-4 bg-slate-50 rounded-lg border border-slate-100">
+        <h3 className="text-sm font-semibold text-slate-800 flex items-center gap-2 mb-2">
+          <HelpCircle className="w-4 h-4 text-amber-600" />
+          ¿Por qué puede ocurrir?
+        </h3>
+        <ol className="space-y-1.5 list-decimal list-inside text-sm text-slate-700 leading-relaxed">
+          {causes.length > 0 ? (
+            causes.map((cause, i) => <li key={i}>{cause}</li>)
+          ) : (
+            <li className="list-none text-slate-500">
+              Sin causas registradas para esta categoría. Documenta las causas habituales en el
+              catálogo de categorías (CRUD).
+            </li>
+          )}
+        </ol>
+      </div>
+
+      <div className="p-4 bg-slate-50 rounded-lg border border-slate-100">
+        <h3 className="text-sm font-semibold text-slate-800 flex items-center gap-2 mb-2">
+          <ClipboardList className="w-4 h-4 text-indigo-600" />
+          Soluciones sugeridas
+        </h3>
+        <ol className="space-y-1.5 list-decimal list-inside text-sm text-slate-700 leading-relaxed">
+          {solutions.length > 0 ? (
+            solutions.map((solution, i) => <li key={i}>{solution}</li>)
+          ) : (
+            <li className="list-none text-slate-500">
+              Sin soluciones documentadas todavía. Agrega el runbook en el catálogo de categorías.
+            </li>
+          )}
+        </ol>
       </div>
 
       <div className="p-4 bg-slate-50 rounded-lg border border-slate-100">

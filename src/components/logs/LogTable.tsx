@@ -9,17 +9,27 @@ import {
   Shield,
   Activity,
   Layers,
+  Wrench,
 } from "lucide-react";
 import { LogCategoryBadge } from "./LogCategoryBadge";
+import { LogDetailModal } from "./LogDetailModal";
+import { describeLogEvent, describeSeverity, SERVICE_STATUS_LABELS } from "@/core/domain/log-knowledge";
 
 export interface LogListItem {
   id: string;
   serverId: string | null;
   serverName: string | null;
+  serviceId: string | null;
+  serviceName: string | null;
+  serviceStatus: string | null;
   category: string;
   categoryName: string;
+  categoryDescription?: string | null;
+  categoryCommonCauses?: string | null;
+  categorySolutions?: string | null;
   eventTimestamp: string;
   ingestionTimestamp: string;
+  eventType?: string | null;
   severity: string;
   sanitizedMessage: string;
   isUntrusted: boolean;
@@ -35,6 +45,7 @@ export function LogTable({ logs, onRefresh, isLoading }: LogTableProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("ALL");
   const [selectedSeverity, setSelectedSeverity] = useState<string>("ALL");
+  const [selectedLog, setSelectedLog] = useState<LogListItem | null>(null);
 
   const filteredLogs = logs.filter((log) => {
     const matchesSearch =
@@ -130,8 +141,8 @@ export function LogTable({ logs, onRefresh, isLoading }: LogTableProps) {
               <th className="py-4 px-6 font-semibold">Fecha del Evento</th>
               <th className="py-4 px-6 font-semibold">Categoría</th>
               <th className="py-4 px-6 font-semibold">Severidad</th>
-              <th className="py-4 px-6 font-semibold">Servidor</th>
-              <th className="py-4 px-6 font-semibold">Mensaje</th>
+              <th className="py-4 px-6 font-semibold">Servidor / Servicio</th>
+              <th className="py-4 px-6 font-semibold">Qué pasó</th>
               <th className="py-4 px-6 text-right font-semibold">Acción</th>
             </tr>
           </thead>
@@ -171,28 +182,57 @@ export function LogTable({ logs, onRefresh, isLoading }: LogTableProps) {
                     </span>
                   </td>
                   <td className="py-3 px-4">
-                    <div className="text-sm text-slate-700 font-medium">
-                      {log.serverName || "No asignado"}
-                    </div>
-                    <div className="text-xs text-slate-500 font-mono">
-                      {log.serverId || "—"}
+                    <div className="space-y-1.5">
+                      <div className="text-sm text-slate-700 font-medium">
+                        {log.serverName || "No asignado"}
+                        {log.isUntrusted && (
+                          <span className="ml-2 text-[10px] text-amber-700 bg-amber-50 border border-amber-200 rounded px-1.5 py-0.5 align-middle">
+                            no confiable
+                          </span>
+                        )}
+                      </div>
+                      {log.serviceName ? (
+                        <span
+                          className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded border text-[11px] font-medium ${
+                            SERVICE_STATUS_LABELS[log.serviceStatus ?? "UNKNOWN"]?.badgeClass ??
+                            "bg-slate-100 text-slate-600 border-slate-200"
+                          }`}
+                          title={`Estado del servicio: ${SERVICE_STATUS_LABELS[log.serviceStatus ?? "UNKNOWN"]?.label ?? log.serviceStatus ?? "desconocido"}`}
+                        >
+                          <Wrench className="w-3 h-3" />
+                          {log.serviceName}
+                        </span>
+                      ) : (
+                        <div className="text-xs text-slate-400 italic">sin servicio identificado</div>
+                      )}
                     </div>
                   </td>
-                  <td className="py-3 px-4">
-                    <div className="text-sm text-slate-600">
+                  <td className="py-3 px-4 max-w-md">
+                    {/* Lectura descriptiva para decidir rápido, con el mensaje
+                        técnico original de referencia. */}
+                    <div className="text-sm text-slate-800 font-medium leading-snug">
+                      {describeLogEvent({
+                        category: log.category,
+                        severity: log.severity,
+                        message: log.sanitizedMessage,
+                      }).title}
+                    </div>
+                    <div
+                      className="text-xs text-slate-500 font-mono truncate mt-1"
+                      title={`Mensaje técnico original: ${log.sanitizedMessage}`}
+                    >
                       {log.sanitizedMessage}
                     </div>
-                    {log.isUntrusted && (
-                      <span className="text-xs text-slate-400 ml-2">
-                        (datos no confiables)
-                      </span>
-                    )}
                   </td>
                   <td className="py-3 px-4 text-right">
+                    {/* Única acción por fila: abre el detalle con servidor,
+                        servicio, categoría, causas y soluciones (LogDetailModal). */}
                     <button
+                      onClick={() => setSelectedLog(log)}
+                      title={`Ver detalle del evento (${describeSeverity(log.severity)})`}
                       className="text-xs font-medium text-indigo-600 hover:text-indigo-800 transition px-2 py-1 bg-indigo-50 hover:bg-indigo-100 rounded"
                     >
-                      Ver
+                      Ver detalle
                     </button>
                   </td>
                 </tr>
@@ -201,6 +241,11 @@ export function LogTable({ logs, onRefresh, isLoading }: LogTableProps) {
           </tbody>
         </table>
       </div>
+
+      {/* Detalle del evento seleccionado */}
+      {selectedLog && (
+        <LogDetailModal log={selectedLog} onClose={() => setSelectedLog(null)} />
+      )}
 
       <div className="p-3 border-t border-slate-100 bg-slate-50 text-xs text-slate-500 flex justify-between items-center">
         <span>
