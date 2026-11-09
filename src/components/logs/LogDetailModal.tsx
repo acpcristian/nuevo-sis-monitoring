@@ -31,6 +31,15 @@ interface LogDetailData {
   id: string;
   serverId: string | null;
   serverName: string | null;
+  serverIp?: string | null;
+  serverEnvironment?: string | null;
+  serverHealth?: string | null;
+  serverOs?: string | null;
+  serverDescription?: string | null;
+  serverOwner?: string | null;
+  serverLastSeenAt?: string | null;
+  serverTags?: Array<{ key: string; value: string }>;
+  serverServices?: Array<{ id: string; name: string; status: string }>;
   serviceId: string | null;
   serviceName: string | null;
   serviceStatus: string | null;
@@ -128,26 +137,96 @@ export function LogDetailModal({ log, onClose }: LogDetailModalProps) {
 
           {/* Origen: servidor, servicio y categoría */}
           <section className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            <div className="p-4 bg-slate-50 border border-slate-100 rounded-xl space-y-2">
+            <div className="p-4 bg-slate-50 border border-slate-100 rounded-xl space-y-2 md:col-span-2">
               <h3 className="text-sm font-semibold text-slate-800 flex items-center gap-2">
                 <Server className="w-4 h-4 text-indigo-600" />
-                Servidor
+                Servidor del inventario
               </h3>
-              <div className="text-sm font-medium text-slate-700">
-                {log.serverName || "Sin servidor asignado"}
-              </div>
-              {log.serverId ? (
-                <div className="space-y-1">
-                  <p className="text-xs font-mono text-slate-400 break-all">{log.serverId}</p>
-                  <a
-                    href={`/servers/${log.serverId}`}
-                    className="inline-flex items-center gap-1 text-xs text-indigo-600 hover:text-indigo-800 hover:underline"
-                  >
-                    Ver servidor <ExternalLink className="w-3 h-3" />
-                  </a>
+              {log.serverName ? (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-sm font-semibold text-slate-800">{log.serverName}</span>
+                    {log.serverIp && (
+                      <span className="font-mono text-xs px-2 py-0.5 rounded bg-white border border-slate-200 text-slate-600">{log.serverIp}</span>
+                    )}
+                    {log.serverEnvironment && (
+                      <span className="text-[10px] px-2 py-0.5 rounded bg-indigo-50 text-indigo-700 border border-indigo-200 font-medium">{log.serverEnvironment}</span>
+                    )}
+                    {log.serverHealth && (
+                      <span className={`text-[10px] px-2 py-0.5 rounded font-medium border ${
+                        log.serverHealth === "ONLINE" ? "bg-emerald-50 text-emerald-700 border-emerald-200" :
+                        log.serverHealth === "DEGRADED" ? "bg-amber-50 text-amber-700 border-amber-200" :
+                        log.serverHealth === "PENDING" ? "bg-slate-100 text-slate-600 border-slate-200" :
+                        "bg-rose-50 text-rose-700 border-rose-200"}`}>
+                        {log.serverHealth === "ONLINE" ? "EN LÍNEA" : log.serverHealth === "UNREACHABLE" ? "INACCESIBLE" : log.serverHealth === "AUTH_FAILED" ? "ERROR DE AUTENTICACIÓN" : log.serverHealth}
+                      </span>
+                    )}
+                  </div>
+                  <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1 text-xs">
+                    {log.serverOs && (
+                      <div className="flex justify-between gap-2">
+                        <dt className="text-slate-500">Sistema:</dt>
+                        <dd className="text-slate-700 text-right">{log.serverOs}</dd>
+                      </div>
+                    )}
+                    {log.serverOwner && (
+                      <div className="flex justify-between gap-2">
+                        <dt className="text-slate-500">Responsable:</dt>
+                        <dd className="text-slate-700 text-right">{log.serverOwner}</dd>
+                      </div>
+                    )}
+                    {log.serverLastSeenAt && (
+                      <div className="flex justify-between gap-2 sm:col-span-2">
+                        <dt className="text-slate-500">Última conexión:</dt>
+                        <dd className="text-slate-700 text-right font-mono">
+                          {new Date(log.serverLastSeenAt).toLocaleString("es-ES", { timeZoneName: "short" })}
+                        </dd>
+                      </div>
+                    )}
+                  </dl>
+                  {log.serverDescription && (
+                    <p className="text-xs text-slate-600 leading-relaxed">{log.serverDescription}</p>
+                  )}
+                  {(log.serverTags?.length ?? 0) > 0 && (
+                    <div className="flex flex-wrap gap-1">
+                      {log.serverTags!.map((t) => (
+                        <span key={`${t.key}=${t.value}`} className="text-[10px] px-1.5 py-0.5 rounded-full bg-slate-200 text-slate-600 font-medium">
+                          {t.key}: {t.value}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  {(log.serverServices?.length ?? 0) > 0 && (
+                    <div className="pt-1">
+                      <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400 mb-1">Servicios registrados del servidor</p>
+                      <div className="flex flex-wrap gap-1">
+                        {log.serverServices!.map((s) => (
+                          <span
+                            key={s.id}
+                            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded border text-[10px] font-medium ${
+                              s.status === "RUNNING" ? "bg-emerald-50 text-emerald-700 border-emerald-200" :
+                              s.status === "ERROR" ? "bg-rose-50 text-rose-700 border-rose-200" :
+                              s.status === "STOPPED" ? "bg-amber-50 text-amber-700 border-amber-200" :
+                              "bg-slate-100 text-slate-600 border-slate-200"
+                            }`}
+                          >
+                            <Wrench className="w-2.5 h-2.5" /> {s.name}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {log.serverId && (
+                    <a
+                      href={`/servers/${log.serverId}`}
+                      className="inline-flex items-center gap-1 text-xs text-indigo-600 hover:text-indigo-800 hover:underline"
+                    >
+                      Ver ficha completa del servidor <ExternalLink className="w-3 h-3" />
+                    </a>
+                  )}
                 </div>
               ) : (
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-slate-500 mt-1">
                   El evento llegó sin servidor asociado: verifica la configuración del agente de recolección.
                 </p>
               )}
@@ -156,7 +235,7 @@ export function LogDetailModal({ log, onClose }: LogDetailModalProps) {
             <div className="p-4 bg-slate-50 border border-slate-100 rounded-xl space-y-2">
               <h3 className="text-sm font-semibold text-slate-800 flex items-center gap-2">
                 <Wrench className="w-4 h-4 text-indigo-600" />
-                Servicio
+                Servicio origen
               </h3>
               <div className="text-sm font-medium text-slate-700">
                 {log.serviceName || "Sin servicio identificado"}

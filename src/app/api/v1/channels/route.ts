@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { NotificationService, type ChannelType, type ChannelConfig, type ChannelStatus } from "@/core/services/notification.service";
+import { NotificationService } from "@/core/services/notification.service";
+import { ChannelCreateSchema } from "@/shared/validations/notification.schema";
 import { RbacGuard } from "@/infrastructure/security/rbac-guard";
 import { DomainError } from "@/shared/errors/domain-errors";
 
@@ -30,34 +31,15 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { type, name, description, config } = body ?? {};
-
-    const validTypes: ChannelType[] = ["EMAIL", "SLACK", "WEBHOOK", "PAGERDUTY"];
-    if (!validTypes.includes(type)) {
-      return NextResponse.json(
-        { error_code: "VALIDATION_ERROR", message: `type debe ser uno de: ${validTypes.join(", ")}.` },
-        { status: 422 }
-      );
-    }
-    if (typeof name !== "string" || name.trim().length < 3) {
-      return NextResponse.json(
-        { error_code: "VALIDATION_ERROR", message: "name es obligatorio (mínimo 3 caracteres)." },
-        { status: 422 }
-      );
-    }
-    if (!config || typeof config !== "object") {
-      return NextResponse.json(
-        { error_code: "VALIDATION_ERROR", message: "config es obligatorio (webhookUrl/routingKey o SMTP)." },
-        { status: 422 }
-      );
-    }
+    const input = ChannelCreateSchema.parse(body);
 
     const channel = await NotificationService.createChannel(
       {
-        type: type as ChannelType,
-        name: name.trim(),
-        description: typeof description === "string" ? description : undefined,
-        config: config as ChannelConfig,
+        type: input.type,
+        name: input.name.trim(),
+        description: input.description,
+        config: input.config as never,
+        categories: input.categories ?? [],
       },
       user.id,
       user.ipAddress
@@ -67,6 +49,12 @@ export async function POST(request: NextRequest) {
   } catch (error: unknown) {
     if (error instanceof DomainError) {
       return NextResponse.json({ error_code: error.code, message: error.message }, { status: error.statusCode });
+    }
+    if (error && typeof error === "object" && "issues" in error) {
+      return NextResponse.json(
+        { error_code: "VALIDATION_FAILED", message: "Datos de entrada inválidos para el canal." },
+        { status: 400 }
+      );
     }
     console.error("Error en POST /api/v1/channels:", error);
     return NextResponse.json({ error_code: "INTERNAL_ERROR", message: "Error al crear el canal." }, { status: 500 });

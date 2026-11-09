@@ -18,6 +18,14 @@ interface LogEventDetailData {
   serverId: string | null;
   serverName: string | null;
   serverIp: string | null;
+  serverEnvironment?: string | null;
+  serverHealth?: string | null;
+  serverOs?: string | null;
+  serverDescription?: string | null;
+  serverOwner?: string | null;
+  serverLastSeenAt?: string | null;
+  serverTags?: Array<{ key: string; value: string }>;
+  serverServices?: Array<{ id: string; name: string; status: string }>;
   serviceId: string | null;
   serviceName: string | null;
   serviceStatus: string | null;

@@ -17,12 +17,19 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { title, message, severity, incidentId, metadata } = body;
+    const { title, message, severity, category, incidentId, metadata, action } = body ?? {};
+
+    // Acción operativa: barrer entregas RETRYING con reintento vencido.
+    if (action === "process-retries") {
+      const result = await NotificationService.processRetries();
+      return NextResponse.json(result, { status: 200 });
+    }
 
     const results = await NotificationService.sendNotification({
       title,
       message,
       severity,
+      category: typeof category === "string" ? category : undefined,
       incidentId,
       metadata,
     });
@@ -51,9 +58,18 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const take = Math.min(100, Math.max(1, parseInt(searchParams.get("limit") ?? "50")));
     const status = searchParams.get("status");
+    const channelId = searchParams.get("channel_id");
+    const category = searchParams.get("category");
 
-    const where: { status?: "SENT" | "FAILED" | "RETRYING" } =
+    const where: {
+      status?: "SENT" | "FAILED" | "RETRYING";
+      channelId?: string;
+      category?: string;
+    } =
       status === "SENT" || status === "FAILED" || status === "RETRYING" ? { status } : {};
+    if (channelId) where.channelId = channelId;
+    if (category) where.category = category;
+
     const items = await prisma.notificationDelivery.findMany({
       where,
       orderBy: { lastAttemptAt: "desc" },

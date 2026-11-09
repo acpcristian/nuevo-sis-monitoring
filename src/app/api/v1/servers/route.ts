@@ -69,13 +69,18 @@ export async function POST(request: NextRequest) {
     const sanitizedResponse = ServerPresenter.toDto(createdServer as RawServerWithRelations, user.role);
 
     // Notifica al catálogo del inventario para que el nuevo servidor aparezca inmediatamente.
+    // Usa NEXT_PUBLIC_APP_URL si está definido; si no, el origen de la propia petición.
     try {
-      const catalogEventUrl = `${process.env.NEXT_PUBLIC_APP_URL || ""}/api/v1/catalog/events`;
-      await fetch(catalogEventUrl, {
+      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || request.nextUrl.origin;
+      const catalogEventUrl = new URL("/api/v1/catalog/events", baseUrl);
+      const res = await fetch(catalogEventUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ type: "SERVER_CREATED", serverId: createdServer.id }),
       });
+      if (!res.ok && res.status !== 404) {
+        console.warn("[server-create] catálogo respondió", res.status, "para evento SERVER_CREATED");
+      }
     } catch (eventErr) {
       console.warn("[server-create] falló notificación al catálogo:", eventErr);
     }

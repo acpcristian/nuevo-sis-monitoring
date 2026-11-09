@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { NotificationService, type ChannelStatus, type ChannelConfig } from "@/core/services/notification.service";
+import { NotificationService } from "@/core/services/notification.service";
+import { ChannelUpdateSchema } from "@/shared/validations/notification.schema";
 import { RbacGuard } from "@/infrastructure/security/rbac-guard";
 import { DomainError } from "@/shared/errors/domain-errors";
 
-/** PATCH /api/v1/channels/[id] — actualiza nombre/descripción/estado/config (solo SUPERADMIN). */
+/** PATCH /api/v1/channels/[id] — actualiza nombre/descripción/estado/config/suscripciones (solo SUPERADMIN). */
 export async function PATCH(
   request: NextRequest,
   context: { params: Promise<{ id: string }> }
@@ -20,17 +21,29 @@ export async function PATCH(
     }
 
     const body = await request.json();
-    const input: { name?: string; description?: string; status?: ChannelStatus; config?: ChannelConfig } = {};
-    if (typeof body?.name === "string") input.name = body.name;
-    if (typeof body?.description === "string") input.description = body.description;
-    if (body?.status === "ACTIVE" || body?.status === "INACTIVE") input.status = body.status;
-    if (body?.config && typeof body.config === "object") input.config = body.config as ChannelConfig;
+    const parsed = ChannelUpdateSchema.parse(body);
 
-    const channel = await NotificationService.updateChannel(id, input, user.id, user.ipAddress);
+    const channel = await NotificationService.updateChannel(
+      id,
+      {
+        ...parsed,
+        description: parsed.description ?? undefined,
+        categories: parsed.categories ?? undefined,
+        config: parsed.config as never,
+      },
+      user.id,
+      user.ipAddress
+    );
     return NextResponse.json(channel);
   } catch (error: unknown) {
     if (error instanceof DomainError) {
       return NextResponse.json({ error_code: error.code, message: error.message }, { status: error.statusCode });
+    }
+    if (error && typeof error === "object" && "issues" in error) {
+      return NextResponse.json(
+        { error_code: "VALIDATION_FAILED", message: "Datos de entrada inválidos para el canal." },
+        { status: 400 }
+      );
     }
     console.error("Error en PATCH /api/v1/channels/[id]:", error);
     return NextResponse.json({ error_code: "INTERNAL_ERROR", message: "Error al actualizar el canal." }, { status: 500 });

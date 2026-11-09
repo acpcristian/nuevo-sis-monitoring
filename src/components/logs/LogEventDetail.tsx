@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Clock, FileText, Key, Shield, AlertCircle, Wrench, HelpCircle, ClipboardList } from "lucide-react";
+import { Clock, Key, Shield, AlertCircle, Wrench, HelpCircle, ClipboardList } from "lucide-react";
 import {
   describeLogEvent,
   describeSeverity,
@@ -15,6 +15,14 @@ interface LogEventDetailProps {
     serverId: string | null;
     serverName: string | null;
     serverIp: string | null;
+    serverEnvironment?: string | null;
+    serverHealth?: string | null;
+    serverOs?: string | null;
+    serverDescription?: string | null;
+    serverOwner?: string | null;
+    serverLastSeenAt?: string | null;
+    serverTags?: Array<{ key: string; value: string }>;
+    serverServices?: Array<{ id: string; name: string; status: string }>;
     serviceId: string | null;
     serviceName: string | null;
     serviceStatus: string | null;
@@ -132,21 +140,77 @@ export function LogEventDetail({ event, canViewRaw }: LogEventDetailProps) {
         <div className="space-y-3">
           <div className="p-3 bg-slate-50 rounded-lg border border-slate-100">
             <div className="flex items-center gap-2 mb-2">
-              <FileText className="w-4 h-4 text-indigo-600" />
-              <h3 className="text-sm font-semibold text-slate-800">Servidor</h3>
+              <Shield className="w-4 h-4 text-indigo-600" />
+              <h3 className="text-sm font-semibold text-slate-800">Servidor del inventario</h3>
             </div>
             <div className="space-y-1 text-sm">
-              <div className="flex justify-between">
+              <div className="flex justify-between gap-3">
                 <span className="text-slate-500">Nombre:</span>
-                <span className="font-medium text-slate-700">{event.serverName || "No asignado"}</span>
+                <span className="font-medium text-slate-700 text-right">{event.serverName || "Sin servidor asociado"}</span>
               </div>
               {event.serverIp && (
-                <div className="flex justify-between">
+                <div className="flex justify-between gap-3">
                   <span className="text-slate-500">IP:</span>
                   <span className="font-mono text-slate-700">{event.serverIp}</span>
                 </div>
               )}
+              {event.serverEnvironment && (
+                <div className="flex justify-between gap-3">
+                  <span className="text-slate-500">Ambiente:</span>
+                  <span className="text-slate-700">{event.serverEnvironment}</span>
+                </div>
+              )}
+              {event.serverHealth && (
+                <div className="flex justify-between gap-3">
+                  <span className="text-slate-500">Salud:</span>
+                  <span className="text-slate-700">{event.serverHealth}</span>
+                </div>
+              )}
+              {event.serverOs && (
+                <div className="flex justify-between gap-3">
+                  <span className="text-slate-500">Sistema:</span>
+                  <span className="text-slate-700">{event.serverOs}</span>
+                </div>
+              )}
+              {event.serverOwner && (
+                <div className="flex justify-between gap-3">
+                  <span className="text-slate-500">Responsable:</span>
+                  <span className="text-slate-700 text-right">{event.serverOwner}</span>
+                </div>
+              )}
             </div>
+            {event.serverDescription && (
+              <p className="text-xs text-slate-600 leading-relaxed mt-2">{event.serverDescription}</p>
+            )}
+            {(event.serverTags?.length ?? 0) > 0 && (
+              <div className="flex flex-wrap gap-1 mt-2">
+                {event.serverTags!.map((t) => (
+                  <span key={`${t.key}=${t.value}`} className="text-[10px] px-1.5 py-0.5 rounded-full bg-slate-200 text-slate-600 font-medium">
+                    {t.key}: {t.value}
+                  </span>
+                ))}
+              </div>
+            )}
+            {(event.serverServices?.length ?? 0) > 0 && (
+              <div className="mt-2 pt-2 border-t border-slate-100">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400 mb-1">Servicios registrados del servidor</p>
+                <div className="flex flex-wrap gap-1">
+                  {event.serverServices!.map((s) => (
+                    <span
+                      key={s.id}
+                      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded border text-[10px] font-medium ${
+                        s.status === "RUNNING" ? "bg-emerald-50 text-emerald-700 border-emerald-200" :
+                        s.status === "ERROR" ? "bg-rose-50 text-rose-700 border-rose-200" :
+                        s.status === "STOPPED" ? "bg-amber-50 text-amber-700 border-amber-200" :
+                        "bg-slate-100 text-slate-600 border-slate-200"
+                      }`}
+                    >
+                      {s.name}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="p-3 bg-slate-50 rounded-lg border border-slate-100">

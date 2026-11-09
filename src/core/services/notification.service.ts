@@ -31,6 +31,8 @@ export interface ChannelPresenter {
   name: string;
   description: string | null;
   status: ChannelStatus;
+  /** Categorías a las que está suscrito; vacío = todas. */
+  categories: string[];
   configSummary: Record<string, unknown> | null;
   lastTestAt: Date | null;
   lastTestStatus: string | null;
@@ -47,6 +49,7 @@ interface ChannelRow {
   name: string;
   description: string | null;
   status: "ACTIVE" | "INACTIVE";
+  categories: string[];
   encryptedPayload: string;
   iv: string;
   authTag: string;
@@ -82,6 +85,7 @@ function presentChannel(row: ChannelRow): ChannelPresenter {
     name: row.name,
     description: row.description,
     status: row.status,
+    categories: row.categories ?? [],
     configSummary: (row.configSummary as Record<string, unknown> | null) ?? null,
     lastTestAt: row.lastTestAt,
     lastTestStatus: row.lastTestStatus,
@@ -148,7 +152,7 @@ export class NotificationService {
   }
 
   public static async createChannel(
-    input: { type: ChannelType; name: string; description?: string; config: ChannelConfig },
+    input: { type: ChannelType; name: string; description?: string; config: ChannelConfig; categories?: string[] },
     userId: string,
     ipAddress?: string | null
   ): Promise<ChannelPresenter> {
@@ -164,6 +168,7 @@ export class NotificationService {
         name: input.name,
         description: input.description ?? null,
         status: "ACTIVE",
+        categories: input.categories ?? [],
         encryptedPayload: enc.encryptedPayload,
         iv: enc.iv,
         authTag: enc.authTag,
@@ -183,7 +188,7 @@ export class NotificationService {
 
   public static async updateChannel(
     id: string,
-    input: { name?: string; description?: string; status?: ChannelStatus; config?: ChannelConfig },
+    input: { name?: string; description?: string | null; status?: ChannelStatus; config?: ChannelConfig; categories?: string[] },
     userId: string,
     ipAddress?: string | null
   ): Promise<ChannelPresenter> {
@@ -196,12 +201,14 @@ export class NotificationService {
     if (input.name !== undefined) data.name = input.name;
     if (input.description !== undefined) data.description = input.description;
     if (input.status !== undefined) data.status = input.status;
+    if (input.categories !== undefined) data.categories = input.categories ?? [];
     if (input.config !== undefined) {
-      const enc = SecretVault.encryptSecret(JSON.stringify(input.config), `channel:${channel.id}`);
+      const mergedConfig = this.mergeConfigPreservingSecrets(channel as ChannelRow, input.config);
+      const enc = SecretVault.encryptSecret(JSON.stringify(mergedConfig), `channel:${channel.id}`);
       data.encryptedPayload = enc.encryptedPayload;
       data.iv = enc.iv;
       data.authTag = enc.authTag;
-      data.configSummary = this.buildConfigSummary(channel.type as ChannelType, input.config);
+      data.configSummary = this.buildConfigSummary(channel.type as ChannelType, mergedConfig);
     }
 
     const updated = await prisma.notificationChannel.update({ where: { id }, data: data as never });
@@ -214,6 +221,23 @@ export class NotificationService {
     });
 
     return presentChannel(updated as ChannelRow);
+  }
+
+  /**
+   * Al re-cifrar config en una edición, conserva los secretos que la UI no
+   * reenvió (p.ej. la contraseña SMTP no se re-escribe al editar el host):
+   * el valor omitido/vacío NO significa "borrar el secreto".
+   */
+  private static mergeConfigPreservingSecrets(current: ChannelRow, incoming: ChannelConfig): ChannelConfig {
+    const previous = decryptConfig(current);
+    const merged: ChannelConfig = { ...previous };
+    for (const [key, value] of Object.entries(incoming)) {
+      if (value === undefined) continue;
+      if (key === "smtpPassword" && (value === "" || value === null)) continue;
+      if (key === "smtpSecure" && value === undefined) continue;
+      (merged as Record<string, unknown>)[key] = value;
+    }
+    return merged;
   }
 
   public static async deleteChannel(id: string, userId: string, ipAddress?: string | null): Promise<void> {
@@ -280,20 +304,28 @@ export class NotificationService {
   // ==========================================================================
 
   /**
-   * Notifica un incidente/evento a todos los canales activos, con deduplicación
-   * por ventana (anti-tormenta) y persistencia de entregabilidad (FR-002/FR-004).
+   * Notifica un evento a los canales activos suscritos a la categoría indicada
+   * (un canal sin suscripciones recibe todas), con deduplicación por ventana
+   * (anti-tormenta) y persistencia de entregabilidad (FR-002/FR-004).
    */
   public static async sendNotification(params: {
     title: string;
     message: string;
     severity: "CRITICAL" | "MAJOR" | "MINOR" | "HIGH" | "MEDIUM" | "LOW" | "INFO" | string;
+    /** Categoría del sistema que originó la alerta (SERVER_OFFLINE, LOG_ALERT…). */
+    category?: string;
     incidentId?: string;
     metadata?: Record<string, unknown>;
   }): Promise<SendResult[]> {
     const channels = await prisma.notificationChannel.findMany({ where: { status: "ACTIVE" } });
     const results: SendResult[] = [];
+    const targetCategory = params.category ?? null;
 
     for (const row of channels) {
+      // Enrutamiento por suscripción: canal vacío = suscrito a todo;
+      // con suscripciones, solo recibe las categorías que incluye.
+      const subscribes = row.categories.length === 0 || (targetCategory !== null && row.categories.includes(targetCategory));
+      if (targetCategory && !subscribes) continue;
       const key = dedupKey(row.id, params.title, params.severity);
 
       // Dedup dentro de la ventana (mismo canal + mismo título + bucket temporal)
@@ -314,6 +346,7 @@ export class NotificationService {
             title: params.title,
             message: params.message,
             severity: params.severity,
+            category: targetCategory,
             incidentId: params.incidentId ?? null,
             status: "RETRYING",
           },

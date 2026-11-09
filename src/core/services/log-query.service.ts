@@ -15,12 +15,26 @@ export interface ListLogEventsParams {
   search?: string | null;
   page?: number;
   limit?: number;
+  /** Mostrar también eventos sin servidor asignado (auditoría/depuración). */
+  includeUnassigned?: boolean;
+  /** Mostrar también logs de servidores retirados del inventario. */
+  includeRetired?: boolean;
 }
 
 export interface LogEventWithRelations {
   id: string;
   serverId: string | null;
   serverName: string | null;
+  /** Información adicional del servidor cargada en el inventario. */
+  serverIp: string | null;
+  serverEnvironment: string | null;
+  serverHealth: string | null;
+  serverOs: string | null;
+  serverDescription: string | null;
+  serverOwner: string | null;
+  serverLastSeenAt: string | null;
+  serverTags: Array<{ key: string; value: string }>;
+  serverServices: Array<{ id: string; name: string; status: string }>;
   serviceId: string | null;
   serviceName: string | null;
   serviceStatus: string | null;
@@ -54,6 +68,13 @@ export class LogQueryService {
 
     if (params.serverId) {
       where.serverId = params.serverId;
+    } else if (!params.includeUnassigned && !params.includeRetired) {
+      // Solo logs de servidores vigentes del inventario: oculta eventos sin
+      // servidor asignado (típicamente ingesta de prueba) y servidores retirados.
+      where.server = { lifecycleState: { not: "RETIRED" } };
+    } else if (params.includeUnassigned && !params.includeRetired) {
+      where.server = { lifecycleState: { not: "RETIRED" } };
+      where.OR = [{ server: { is: { lifecycleState: { not: "RETIRED" } } } }, { serverId: null }];
     }
     if (params.category) {
       where.category = params.category;
@@ -89,7 +110,20 @@ export class LogQueryService {
         orderBy: [{ eventTimestamp: "desc" }, { ingestionTimestamp: "desc" }],
         include: {
           server: {
-            select: { id: true, name: true },
+            select: {
+              id: true,
+              name: true,
+              ipAddress: true,
+              environment: true,
+              healthStatus: true,
+              osType: true,
+              osVersion: true,
+              description: true,
+              technicalOwner: true,
+              lastSeenAt: true,
+              tags: { select: { tag: { select: { key: true, value: true } } } },
+              services: { select: { id: true, name: true, status: true }, orderBy: { name: "asc" } },
+            },
           },
           service: {
             select: { id: true, name: true, status: true },
@@ -111,6 +145,16 @@ export class LogQueryService {
       id: item.id,
       serverId: item.serverId,
       serverName: item.server?.name ?? null,
+      serverIp: item.server?.ipAddress ?? null,
+      serverEnvironment: item.server?.environment ?? null,
+      serverHealth: item.server?.healthStatus ?? null,
+      serverOs: item.server ? `${item.server.osType}${item.server.osVersion ? ` ${item.server.osVersion}` : ""}` : null,
+      serverDescription: item.server?.description ?? null,
+      serverOwner: item.server?.technicalOwner ?? null,
+      serverLastSeenAt: item.server?.lastSeenAt?.toISOString() ?? null,
+      serverTags:
+        item.server?.tags?.map((t) => ({ key: t.tag.key, value: t.tag.value })) ?? [],
+      serverServices: item.server?.services?.map((s) => ({ id: s.id, name: s.name, status: s.status })) ?? [],
       serviceId: item.serviceId,
       serviceName: item.service?.name ?? null,
       serviceStatus: item.service?.status ?? null,
@@ -147,7 +191,20 @@ export class LogQueryService {
       where: { id },
       include: {
         server: {
-          select: { id: true, name: true, ipAddress: true },
+          select: {
+            id: true,
+            name: true,
+            ipAddress: true,
+            environment: true,
+            healthStatus: true,
+            osType: true,
+            osVersion: true,
+            description: true,
+            technicalOwner: true,
+            lastSeenAt: true,
+            tags: { select: { tag: { select: { key: true, value: true } } } },
+            services: { select: { id: true, name: true, status: true }, orderBy: { name: "asc" } },
+          },
         },
         service: {
           select: { id: true, name: true, status: true, port: true, endpoint: true },
@@ -173,6 +230,14 @@ export class LogQueryService {
       serverId: event.serverId,
       serverName: event.server?.name ?? null,
       serverIp: event.server?.ipAddress ?? null,
+      serverEnvironment: event.server?.environment ?? null,
+      serverHealth: event.server?.healthStatus ?? null,
+      serverOs: event.server ? `${event.server.osType}${event.server.osVersion ? ` ${event.server.osVersion}` : ""}` : null,
+      serverDescription: event.server?.description ?? null,
+      serverOwner: event.server?.technicalOwner ?? null,
+      serverLastSeenAt: event.server?.lastSeenAt?.toISOString() ?? null,
+      serverTags: event.server?.tags?.map((t) => ({ key: t.tag.key, value: t.tag.value })) ?? [],
+      serverServices: event.server?.services?.map((s) => ({ id: s.id, name: s.name, status: s.status })) ?? [],
       serviceId: event.serviceId,
       serviceName: event.service?.name ?? null,
       serviceStatus: event.service?.status ?? null,
