@@ -52,3 +52,59 @@ export interface ChatMessageItem {
   /** Resúmenes de herramientas consultadas durante el turno. */
   tools?: string[];
 }
+
+// ── Knowledge Base (013) ──────────────────────────────────────────────────
+
+export interface AgentKbEntryDto {
+  id: string;
+  kind: "QA" | "BLOQUE";
+  question: string | null;
+  answer: string | null;
+  title: string | null;
+  content: string | null;
+  enabled: boolean;
+  position: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AgentKbListDto {
+  items: AgentKbEntryDto[];
+  usedChars: number;
+  budget: number;
+}
+
+// ── Historial y métricas (013) ────────────────────────────────────────────
+
+export interface AgentConversationListItemDto {
+  id: string;
+  title: string;
+  startedAt: string;
+  lastMessageAt: string;
+  turnCount: number;
+  totalInputTokens: number;
+  totalOutputTokens: number;
+}
+
+export interface AgentMessageDto {
+  id: string;
+  role: string;
+  content: string;
+  inputTokens: number;
+  outputTokens: number;
+  latencyMs: number | null;
+  tools: string[] | null;
+  createdAt: string;
+}
+
+export interface AgentConversationDetailDto extends AgentConversationListItemDto {
+  messages: AgentMessageDto[];
+}
+
+export interface AgentMetricsDto {
+  conversations: number;
+  turns: number;
+  totalInputTokens: number;
+  totalOutputTokens: number;
+  avgLatencyMs: number | null;
+}

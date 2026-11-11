@@ -32,3 +32,13 @@ Knowledge Base (QA+bloques), historial de conversaciones persistido con métrica
 - Verificado E2E con mock OpenAI local (tool loop), rate limit (3ª petición → RATE_LIMITED retry_after 60s), breaker (URL caída → 5 fallos → CIRCUIT_OPEN → half-open a los 30s) y OpenRouter real (Nemotron invocó consultar_inventario y respondió con el dato vivo).
 - GOTCHA GRAVE: el PUT de prueba con `apiToken` PISA la clave cifrada del proveedor activo (diseño de rotación). Para E2E de config, restaurar la clave al final o usar proveedor desechable con fila aparte.
 - Omitir `rateLimitPerMinute`/`rateLimitPerDay` en el PUT conserva el valor anterior (rotación opt-in como la clave).
+
+## Feature 013 — Fase 2b (2026-11-11): Knowledge Base + historial con métricas
+- `agent-kb.service.ts`: presupuesto de 24000 chars sobre el FORMATO EXACTO del prompt (QA: `P:/R:`, bloque: `## título\ncontenido`, +2 por separador) — un contenido ≤24000 puede igualmente exceder el presupuesto total; validación en create/update/toggle, error `KB_BUDGET_EXCEEDED`.
+- `getEnabledContext()` inyectado en `assembleSystemPrompt` como sección "BASE DE CONOCIMIENTO (FUENTE DE VERDAD)" después de reglas de escalado — verificado con modelo real: respondió el hecho entrenado exacto.
+- `agent-conversations.service.ts`: conversaciones persistidas; tokens ESTIMADOS chars/4 (`estimateTokens`); user message persistido SIEMPRE, assistant solo en turno exitoso; `loadHistory` últimos 20 de la BD (el cliente ya NO envía historial).
+- Chat request `{ message, conversationId? }`: si conversationId no existe → se crea conversación nueva (título = 60 chars del primer mensaje, audit AGENT_CONVERSATION_STARTED). `done` incluye conversationId + tokens { input, output, estimated }. `ChatTurnResult.promptChars` = chars del prompt inicial (para estimar tokens de entrada).
+- APIs nuevas: `/agent/kb` (GET/POST), `/agent/kb/[id]` (PUT/DELETE), `/agent/conversations` (GET), `/agent/conversations/[id]` (GET/DELETE), `/agent/metrics` (GET). Audit: AGENT_KB_UPDATED (estructura/tamaños, no contenido), AGENT_CONVERSATION_STARTED.
+- UI: KnowledgeCard (tabs QA/Bloques, toggle, contador X/24000) + HistoryCard (5 stats, paginado, expandible, Exportar JSON, eliminar) + ChatCard con conversationId y chip "~tk".
+- Zod max(24000) en content rechaza ANTES del presupuesto del servicio: para probar KB_BUDGET_EXCEEDED usar contenido que pase Zod pero exceda el total (p.ej. 23900 con otras entradas activas).
+- Pendiente fase 2 restante (pedido explícito): Anthropic directo, media con reglas (requiere R2), usage REAL de tokens del proveedor (hoy estimado chars/4), pricing por modelo.

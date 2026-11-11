@@ -29,6 +29,8 @@ export interface ChatTurnResult {
   fullText: string;
   firstTokenMs: number | null;
   toolInvocations: string[];
+  /** Caracteres del prompt enviado (para estimar tokens de entrada). */
+  promptChars: number;
 }
 
 const READ_TIMEOUT_MS = 60_000;
@@ -96,6 +98,8 @@ export class LlmChatService {
       ...history.slice(-20).map((message) => ({ role: message.role, content: message.content })),
       { role: "user", content: userMessage },
     ];
+    // Prompt inicial (para estimar tokens de entrada; las tools agregan después).
+    const promptChars = messages.reduce((total, message) => total + (message.content?.length ?? 0), 0);
 
     const toolInvocations: string[] = [];
     let fullText = "";
@@ -124,7 +128,7 @@ export class LlmChatService {
             throw new LlmProviderError(502, "El proveedor no generó contenido para este turno.");
           }
           AgentGuardService.recordSuccess(credentials.id);
-          return { fullText, firstTokenMs, toolInvocations };
+          return { fullText, firstTokenMs, toolInvocations, promptChars };
         }
 
         // El modelo pidió herramientas. En la última ronda ya no volvemos a
@@ -132,7 +136,7 @@ export class LlmChatService {
         if (round === MAX_TOOL_ROUNDS) {
           if (turn.content.trim()) {
             AgentGuardService.recordSuccess(credentials.id);
-            return { fullText, firstTokenMs, toolInvocations };
+            return { fullText, firstTokenMs, toolInvocations, promptChars };
           }
           throw new LlmProviderError(
             502,

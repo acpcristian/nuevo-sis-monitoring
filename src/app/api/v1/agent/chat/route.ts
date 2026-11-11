@@ -1,21 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
 import { RbacGuard } from "@/infrastructure/security/rbac-guard";
+import { AuditService } from "@/core/services/audit.service";
 import {
   LlmChatService,
   LlmProviderError,
   NoProviderConfiguredError,
 } from "@/core/services/llm-chat.service";
 import { CircuitOpenError, RateLimitedError } from "@/core/services/agent-guard.service";
+import { AgentConversationsService, estimateTokens } from "@/core/services/agent-conversations.service";
 import { AgentChatRequestSchema } from "@/shared/validations/agent.schema";
 import { DomainError } from "@/shared/errors/domain-errors";
 
 /**
- * Chat de prueba del agente con streaming SSE.
+ * Chat de prueba del agente con streaming SSE y conversaciones persistidas.
  * Eventos del stream:
- *  - `delta`  { text }                        → fragmento incremental de la respuesta
- *  - `tool`   { name, summary }               → el agente consultó una herramienta de dominio
- *  - `done`   { latencyMs, chars, tools }     → turno completado
- *  - `error`  { message, code, retry_after? } → fallo tolerado (proveedor, timeout, config, límites)
+ *  - `delta`  { text }                                      → fragmento incremental
+ *  - `tool`   { name, summary }                             → herramienta consultada
+ *  - `done`   { latencyMs, chars, tools, conversationId, tokens } → turno completado
+ *  - `error`  { message, code, retry_after? }               → fallo tolerado
  */
 export async function POST(request: NextRequest) {
   let user;
@@ -68,19 +70,56 @@ export async function POST(request: NextRequest) {
 
       const started = Date.now();
       try {
-        const result = await LlmChatService.streamChatTurn(
-          validatedInput.message,
-          validatedInput.history ?? [],
-          {
-            onDelta: (delta) => send("delta", { text: delta }),
-            onTool: (summary) => send("tool", { name: summary.split("(")[0] ?? summary, summary }),
-          }
-        );
+        // Conversación persistida: nueva (desde el mensaje) o existente con
+        // historial cargado de la BD (fuente de verdad; el cliente no manda historial).
+        let conversationId = validatedInput.conversationId ?? null;
+        if (conversationId && !(await AgentConversationsService.exists(conversationId))) {
+          conversationId = null;
+        }
+        let history: Array<{ role: "user" | "assistant"; content: string }> = [];
+        if (conversationId) {
+          history = await AgentConversationsService.loadHistory(conversationId);
+        } else {
+          const created = await AgentConversationsService.createConversation(
+            user.id,
+            validatedInput.message
+          );
+          conversationId = created.id;
+          await AuditService.recordEvent({
+            userId: user.id,
+            action: "AGENT_CONVERSATION_STARTED",
+            detailsDiff: { conversationId, titleChars: validatedInput.message.trim().slice(0, 60).length },
+            ipAddress: user.ipAddress,
+          });
+        }
+
+        // El mensaje del usuario se persiste siempre (aunque el turno falle).
+        await AgentConversationsService.appendUserMessage(conversationId, validatedInput.message);
+
+        const result = await LlmChatService.streamChatTurn(validatedInput.message, history, {
+          onDelta: (delta) => send("delta", { text: delta }),
+          onTool: (summary) => send("tool", { name: summary.split("(")[0] ?? summary, summary }),
+        });
+
+        // Turno exitoso: persistir respuesta + totales (tokens estimados = chars/4).
+        const inputTokens = estimateTokens(result.promptChars);
+        const outputTokens = estimateTokens(result.fullText.length);
+        const latencyMs = Date.now() - started;
+        await AgentConversationsService.appendAssistantTurn(conversationId, {
+          content: result.fullText,
+          inputTokens,
+          outputTokens,
+          latencyMs,
+          tools: result.toolInvocations,
+        });
+
         send("done", {
-          latencyMs: Date.now() - started,
+          latencyMs,
           firstTokenMs: result.firstTokenMs,
           chars: result.fullText.length,
           tools: result.toolInvocations,
+          conversationId,
+          tokens: { input: inputTokens, output: outputTokens, estimated: true },
         });
       } catch (error: unknown) {
         if (error instanceof NoProviderConfiguredError) {

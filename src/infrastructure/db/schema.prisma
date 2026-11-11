@@ -649,3 +649,59 @@ model AgentProfile {
 
   @@map("agent_profile")
 }
+
+// =============================================================================
+// 013 — Fase 2b: Knowledge Base + historial de conversaciones con métricas
+// =============================================================================
+
+/// Entrada entrenada por el operador: QA (pregunta→respuesta) o BLOQUE libre.
+/// El presupuesto total de contexto inyectado es de 24000 chars (validado en servicio).
+model AgentKbEntry {
+  id        String   @id @default(uuid())
+  kind      String
+  question  String?  @db.Text
+  answer    String?  @db.Text
+  title     String?
+  content   String?  @db.Text
+  enabled   Boolean  @default(true)
+  position  Int      @default(0)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("agent_kb_entries")
+}
+
+/// Conversación del chat de prueba (persistida para historial y métricas).
+model AgentConversation {
+  id                String   @id @default(uuid())
+  userId            String   @map("user_id")
+  title             String
+  startedAt         DateTime @default(now()) @map("started_at")
+  lastMessageAt     DateTime @default(now()) @map("last_message_at")
+  turnCount         Int      @default(0) @map("turn_count")
+  totalInputTokens  Int      @default(0) @map("total_input_tokens")
+  totalOutputTokens Int      @default(0) @map("total_output_tokens")
+
+  messages AgentMessage[]
+
+  @@index([lastMessageAt(sort: Desc)])
+  @@map("agent_conversations")
+}
+
+/// Mensaje individual de una conversación (tokens ESTIMADOS = chars/4).
+model AgentMessage {
+  id             String   @id @default(uuid())
+  conversationId String   @map("conversation_id")
+  role           String
+  content        String   @db.Text
+  inputTokens    Int      @default(0) @map("input_tokens")
+  outputTokens   Int      @default(0) @map("output_tokens")
+  latencyMs      Int?     @map("latency_ms")
+  tools          Json?
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  conversation AgentConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, createdAt])
+  @@map("agent_messages")
+}

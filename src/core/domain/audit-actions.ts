@@ -39,10 +39,12 @@ export const AUDIT_ACTIONS = [
   "SECURITY_ALERT_SENT",
   // Apariencia
   "THEME_UPDATED",
-  // Agente inteligente (011)
+  // Agente inteligente (011/012/013)
   "AGENT_PROVIDER_UPDATED",
   "AGENT_PROVIDER_TESTED",
   "AGENT_PROFILE_UPDATED",
+  "AGENT_KB_UPDATED",
+  "AGENT_CONVERSATION_STARTED",
   // Automatización
   "PLAYBOOK_CREATED",
   "PLAYBOOK_UPDATED",
@@ -145,6 +147,8 @@ export const AUDIT_ACTION_GROUPS: AuditActionGroup[] = [
       { value: "AGENT_PROVIDER_UPDATED", label: "Proveedor de IA actualizado" },
       { value: "AGENT_PROVIDER_TESTED", label: "Proveedor de IA probado" },
       { value: "AGENT_PROFILE_UPDATED", label: "Comportamiento del agente actualizado" },
+      { value: "AGENT_KB_UPDATED", label: "Base de conocimiento del agente actualizada" },
+      { value: "AGENT_CONVERSATION_STARTED", label: "Conversación del agente iniciada" },
     ],
   },
 ];

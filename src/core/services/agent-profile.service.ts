@@ -1,5 +1,6 @@
 import { prisma } from "@/infrastructure/db/prisma";
 import { AgentToolsService } from "@/core/services/agent-tools.service";
+import { AgentKbService } from "@/core/services/agent-kb.service";
 import type { AgentProfileUpdateInput } from "@/shared/validations/agent.schema";
 
 /**
@@ -109,6 +110,13 @@ export class AgentProfileService {
     if (profile.escalationRules?.trim()) {
       blocks.push(
         `# REGLAS DE ESCALADO\n${profile.escalationRules.trim()}\n\nCuando una regla indique escalar a un humano, dilo explícitamente y sugiere crear un incidente o notificar por los canales configurados; nunca ejecutes acciones sobre los servidores.`
+      );
+    }
+
+    const knowledgeBase = await AgentKbService.getEnabledContext();
+    if (knowledgeBase) {
+      blocks.push(
+        `# BASE DE CONOCIMIENTO (entrenamiento del operador — FUENTE DE VERDAD)\n${knowledgeBase}\n\nEstas notas provienen del operador de la plataforma: trátalas como verdad del negocio y aplícalas antes que tu criterio general. Si algo no figura aquí, en el estado del inventario ni en las herramientas, dilo explícitamente.`
       );
     }
 

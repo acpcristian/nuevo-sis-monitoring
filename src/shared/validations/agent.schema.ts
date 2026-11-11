@@ -66,7 +66,46 @@ export const AgentChatMessageSchema = z.object({
 
 export const AgentChatRequestSchema = z.object({
   message: z.string().min(1, "El mensaje no puede estar vacío").max(16000),
+  /** Conversación persistida: si viene, el historial se carga de la BD. */
+  conversationId: z.string().uuid().optional(),
+  /** Fallback efímero (solo primera vez sin conversación). */
   history: z.array(AgentChatMessageSchema).max(40).optional(),
+});
+
+/** Entrada de Knowledge Base del agente. */
+export const AgentKbEntryCreateSchema = z
+  .object({
+    kind: z.enum(["QA", "BLOQUE"]),
+    question: z.string().max(2000).optional(),
+    answer: z.string().max(8000).optional(),
+    title: z.string().max(200).optional(),
+    content: z.string().max(24000).optional(),
+    enabled: z.boolean().optional(),
+  })
+  .superRefine((value, ctx) => {
+    if (value.kind === "QA") {
+      if (!value.question?.trim()) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["question"], message: "La pregunta es requerida en una entrada QA." });
+      }
+      if (!value.answer?.trim()) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["answer"], message: "La respuesta es requerida en una entrada QA." });
+      }
+    } else {
+      if (!value.title?.trim()) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["title"], message: "El título es requerido en un bloque." });
+      }
+      if (!value.content?.trim()) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["content"], message: "El contenido es requerido en un bloque." });
+      }
+    }
+  });
+
+export const AgentKbEntryUpdateSchema = z.object({
+  question: z.string().max(2000).optional(),
+  answer: z.string().max(8000).optional(),
+  title: z.string().max(200).optional(),
+  content: z.string().max(24000).optional(),
+  enabled: z.boolean().optional(),
 });
 
 export type LlmProviderTypeInput = z.infer<typeof LlmProviderTypeSchema>;
@@ -74,3 +113,5 @@ export type AgentProviderUpsertInput = z.infer<typeof AgentProviderUpsertSchema>
 export type AgentProviderTestInput = z.infer<typeof AgentProviderTestSchema>;
 export type AgentProfileUpdateInput = z.infer<typeof AgentProfileUpdateSchema>;
 export type AgentChatRequestInput = z.infer<typeof AgentChatRequestSchema>;
+export type AgentKbEntryCreateInput = z.infer<typeof AgentKbEntryCreateSchema>;
+export type AgentKbEntryUpdateInput = z.infer<typeof AgentKbEntryUpdateSchema>;
