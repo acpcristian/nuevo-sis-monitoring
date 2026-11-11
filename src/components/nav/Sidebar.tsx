@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
   Activity,
+  Bot,
   ChevronsUpDown,
   History,
   KeyRound,
@@ -38,6 +39,7 @@ const PRIMARY_LINKS = [
 
 const OPERATIONS_LINKS = [
   { href: "/logs", label: "Logs", icon: ScrollText },
+  { href: "/agent", label: "Agente IA", icon: Bot },
   { href: "/channels", label: "Notificaciones", icon: Bell },
   { href: "/automation", label: "Automatización", icon: Workflow },
 ];

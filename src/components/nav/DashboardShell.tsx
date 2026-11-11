@@ -15,6 +15,7 @@ const BREADCRUMB: Array<[prefix: string, label: string]> = [
   ["/logs/alerts", "Alertas"],
   ["/logs/diagnosis", "Diagnósticos"],
   ["/logs", "Logs"],
+  ["/agent", "Agente IA"],
   ["/incidents", "Incidentes"],
   ["/channels", "Notificaciones"],
   ["/automation", "Automatización"],

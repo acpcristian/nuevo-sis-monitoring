@@ -599,3 +599,46 @@ model SystemSetting {
 
   @@map("system_settings")
 }
+
+// =============================================================================
+// 011 — Agente Inteligente LLM (MVP: proveedor + perfil + chat de prueba)
+// =============================================================================
+
+/// Proveedor LLM configurado. Solo uno isActive=true a la vez (índice parcial).
+/// La clave API vive cifrada (AES-256-GCM); nunca se devuelve al cliente.
+model AgentProviderConfig {
+  id                String    @id @default(uuid())
+  providerType      String    @map("provider_type")
+  name              String
+  baseUrl           String    @map("base_url")
+  model             String
+  temperature       Float     @default(0.4)
+  maxOutputTokens   Int       @default(2048) @map("max_output_tokens")
+  encryptedPayload  String?   @map("encrypted_payload")
+  iv                String?
+  authTag           String?   @map("auth_tag")
+  keyFingerprint    String?   @map("key_fingerprint")
+  isActive          Boolean   @default(false) @map("is_active")
+  lastTestAt        DateTime? @map("last_test_at")
+  lastTestStatus    String?   @map("last_test_status")
+  lastTestLatencyMs Int?      @map("last_test_latency_ms")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+
+  @@map("agent_provider_configs")
+}
+
+/// Perfil de comportamiento entrenable del agente (fila única sembrada por
+/// la migración con id "agent-profile-default").
+model AgentProfile {
+  id              String   @id @default("agent-profile-default")
+  enabled         Boolean  @default(false)
+  name            String   @default("Agente de Operaciones")
+  tone            String?  @db.Text
+  instructions    String?  @db.Text
+  escalationRules String?  @db.Text @map("escalation_rules")
+  greeting        String?  @db.Text
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  @@map("agent_profile")
+}
