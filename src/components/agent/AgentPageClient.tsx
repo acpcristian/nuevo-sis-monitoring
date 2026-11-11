@@ -36,6 +36,8 @@ function ProviderCard({ onSaved }: { onSaved: () => void }) {
   const [model, setModel] = useState("");
   const [apiToken, setApiToken] = useState("");
   const [changingToken, setChangingToken] = useState(false);
+  const [ratePerMinute, setRatePerMinute] = useState("");
+  const [ratePerDay, setRatePerDay] = useState("");
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<ProviderTestResult | null>(null);
@@ -57,6 +59,8 @@ function ProviderCard({ onSaved }: { onSaved: () => void }) {
         setName(active.name);
         setBaseUrl(active.baseUrl);
         setModel(active.model);
+        setRatePerMinute(active.rateLimitPerMinute === null ? "" : String(active.rateLimitPerMinute));
+        setRatePerDay(active.rateLimitPerDay === null ? "" : String(active.rateLimitPerDay));
         loadedToken.current = true;
       }
     } finally {
@@ -118,6 +122,8 @@ function ProviderCard({ onSaved }: { onSaved: () => void }) {
           baseUrl: baseUrl.trim(),
           model: model.trim(),
           apiToken: apiToken.trim() || undefined,
+          rateLimitPerMinute: ratePerMinute.trim() === "" ? null : Number(ratePerMinute),
+          rateLimitPerDay: ratePerDay.trim() === "" ? null : Number(ratePerDay),
         }),
       });
       const data = (await res.json()) as { message?: string };
@@ -280,6 +286,37 @@ function ProviderCard({ onSaved }: { onSaved: () => void }) {
         </label>
       </div>
 
+      <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+        <p className="text-xs font-semibold text-slate-700 mb-0.5">Guardián de uso</p>
+        <p className="text-[11px] text-slate-500 mb-2">
+          Límites aplicados antes de cada turno (protege tu cuota del proveedor). Vacío = sin límite.
+        </p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <label className="block">
+            <span className="block text-[11px] font-medium text-slate-600 mb-1">Máx. peticiones por minuto</span>
+            <input
+              type="number"
+              min={1}
+              value={ratePerMinute}
+              onChange={(event) => setRatePerMinute(event.target.value)}
+              placeholder="sin límite"
+              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            />
+          </label>
+          <label className="block">
+            <span className="block text-[11px] font-medium text-slate-600 mb-1">Máx. peticiones por día (UTC)</span>
+            <input
+              type="number"
+              min={1}
+              value={ratePerDay}
+              onChange={(event) => setRatePerDay(event.target.value)}
+              placeholder="sin límite"
+              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            />
+          </label>
+        </div>
+      </div>
+
       <div className="flex items-center gap-2 flex-wrap">
         <button
           type="button"
@@ -335,6 +372,7 @@ function ProfileCard({ onSaved }: { onSaved: () => void }) {
   const [escalationRules, setEscalationRules] = useState("");
   const [greeting, setGreeting] = useState("");
   const [enabled, setEnabled] = useState(false);
+  const [toolsEnabled, setToolsEnabled] = useState(true);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -352,6 +390,7 @@ function ProfileCard({ onSaved }: { onSaved: () => void }) {
         setEscalationRules(data.escalationRules ?? "");
         setGreeting(data.greeting ?? "");
         setEnabled(data.enabled);
+        setToolsEnabled(data.toolsEnabled);
       } finally {
         setLoading(false);
       }
@@ -366,7 +405,7 @@ function ProfileCard({ onSaved }: { onSaved: () => void }) {
       const res = await fetch("/api/v1/agent/profile", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ enabled, name: name.trim(), tone, instructions, escalationRules, greeting }),
+        body: JSON.stringify({ enabled, toolsEnabled, name: name.trim(), tone, instructions, escalationRules, greeting }),
       });
       const data = (await res.json()) as { message?: string };
       if (!res.ok) {
@@ -417,6 +456,21 @@ function ProfileCard({ onSaved }: { onSaved: () => void }) {
             onChange={(event) => setName(event.target.value)}
             className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
           />
+        </label>
+
+        <label className="flex items-start gap-2.5 cursor-pointer select-none rounded-lg border border-slate-200 bg-slate-50 p-3">
+          <input
+            type="checkbox"
+            checked={toolsEnabled}
+            onChange={(event) => setToolsEnabled(event.target.checked)}
+            className="w-4 h-4 mt-0.5 accent-indigo-600"
+          />
+          <span>
+            <span className="block text-xs font-medium text-slate-700">Tools de dominio (datos vivos)</span>
+            <span className="block text-[11px] text-slate-500">
+              Permite que el agente consulte en vivo el inventario, los logs, las alertas y los incidentes reales antes de responder (solo lectura).
+            </span>
+          </span>
         </label>
 
         <label className="block">
@@ -554,7 +608,7 @@ function ChatCard({ ready, onNeedSetup }: { ready: boolean; onNeedSetup: () => v
           const dataLine = raw.split("\n").find((line) => line.startsWith("data:"));
           if (!eventLine || !dataLine) continue;
           const eventType = eventLine.slice(6).trim();
-          let payload: { text?: string; message?: string; latencyMs?: number } = {};
+          let payload: { text?: string; message?: string; latencyMs?: number; summary?: string } = {};
           try {
             payload = JSON.parse(dataLine.slice(5).trim());
           } catch {
@@ -565,6 +619,12 @@ function ChatCard({ ready, onNeedSetup }: { ready: boolean; onNeedSetup: () => v
             setMessages((current) =>
               current.map((item, index) =>
                 index === assistantIndex ? { ...item, content: item.content + payload.text } : item
+              )
+            );
+          } else if (eventType === "tool" && payload.summary) {
+            setMessages((current) =>
+              current.map((item, index) =>
+                index === assistantIndex ? { ...item, tools: [...(item.tools ?? []), payload.summary ?? ""] } : item
               )
             );
           } else if (eventType === "done") {
@@ -652,6 +712,18 @@ function ChatCard({ ready, onNeedSetup }: { ready: boolean; onNeedSetup: () => v
                   : "bg-slate-100 text-slate-800 rounded-bl-md"
               }`}
             >
+              {message.tools && message.tools.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 mb-2">
+                  {message.tools.map((tool, toolIndex) => (
+                    <span
+                      key={toolIndex}
+                      className="inline-flex items-center gap-1 rounded-full bg-indigo-50 border border-indigo-200 px-2 py-0.5 text-[10px] font-medium text-indigo-700 font-mono"
+                    >
+                      🛠 {tool}
+                    </span>
+                  ))}
+                </div>
+              )}
               {message.content || (streaming && index === messages.length - 1 ? "▌" : "")}
             </div>
           </div>

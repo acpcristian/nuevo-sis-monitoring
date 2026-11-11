@@ -12,6 +12,9 @@ export interface AgentProviderDto {
   model: string;
   temperature: number;
   maxOutputTokens: number;
+  /** Rate limiting del guardián: null = sin límite. */
+  rateLimitPerMinute: number | null;
+  rateLimitPerDay: number | null;
   requiresApiKey: boolean;
   hasApiKey: boolean;
   keyFingerprint: string | null;
@@ -26,6 +29,7 @@ export interface AgentProviderDto {
 
 export interface AgentProfileDto {
   enabled: boolean;
+  toolsEnabled: boolean;
   name: string;
   tone: string | null;
   instructions: string | null;
@@ -45,4 +49,6 @@ export interface ChatMessageItem {
   role: "user" | "assistant";
   content: string;
   error?: boolean;
+  /** Resúmenes de herramientas consultadas durante el turno. */
+  tools?: string[];
 }

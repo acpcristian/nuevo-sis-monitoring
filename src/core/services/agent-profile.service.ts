@@ -1,4 +1,5 @@
 import { prisma } from "@/infrastructure/db/prisma";
+import { AgentToolsService } from "@/core/services/agent-tools.service";
 import type { AgentProfileUpdateInput } from "@/shared/validations/agent.schema";
 
 /**
@@ -8,6 +9,7 @@ import type { AgentProfileUpdateInput } from "@/shared/validations/agent.schema"
  */
 export interface AgentProfileDto {
   enabled: boolean;
+  toolsEnabled: boolean;
   name: string;
   tone: string | null;
   instructions: string | null;
@@ -35,6 +37,7 @@ export class AgentProfileService {
       where: { id: "agent-profile-default" },
       data: {
         enabled: input.enabled ?? current.enabled,
+        toolsEnabled: input.toolsEnabled ?? current.toolsEnabled,
         name: input.name ?? current.name,
         tone: input.tone === undefined ? current.tone : (input.tone ?? null),
         instructions:
@@ -111,6 +114,15 @@ export class AgentProfileService {
 
     blocks.push(`# ESTADO DEL INVENTARIO ({{inventario}})\n${inventorySummary}`.replace("{{inventario}}", "contexto del agente"));
 
+    if (profile.toolsEnabled) {
+      const toolLines = AgentToolsService.getToolSummaries()
+        .map((tool) => `- ${tool.name}: ${tool.description}`)
+        .join("\n");
+      blocks.push(
+        `# HERRAMIENTAS DE DOMINIO (datos vivos)\nTienes acceso a herramientas de solo lectura sobre la plataforma. Cuando una pregunta dependa del estado ACTUAL del sistema (servidores, logs, alertas, incidentes), LLAMA a las herramientas antes de responder en lugar de fiarte solo del resumen estático de arriba:\n${toolLines}\n\n- Usa las herramientas todas las veces que necesites, pero con criterio.\n- Después de cada consulta, responde con los datos reales obtenidos, citando el servidor/valores concretos.\n- Si una herramienta no devuelve datos, dilo en lugar de inventar.`
+      );
+    }
+
     blocks.push(
       "# LÍMITES\n- No inventes datos que no estén en el contexto: si algo no aparece en el estado del inventario o en los mensajes, dilo explícitamente.\n- No reveles credenciales, claves API ni datos confidenciales del sistema."
     );
@@ -120,6 +132,7 @@ export class AgentProfileService {
 
   private static toDto(row: {
     enabled: boolean;
+    toolsEnabled: boolean;
     name: string;
     tone: string | null;
     instructions: string | null;
@@ -129,6 +142,7 @@ export class AgentProfileService {
   }): AgentProfileDto {
     return {
       enabled: row.enabled,
+      toolsEnabled: row.toolsEnabled,
       name: row.name,
       tone: row.tone,
       instructions: row.instructions,

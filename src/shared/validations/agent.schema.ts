@@ -21,6 +21,9 @@ export const AgentProviderUpsertSchema = z
     model: z.string().min(1, "El modelo es requerido").max(150),
     temperature: z.coerce.number().min(0).max(2).optional(),
     maxOutputTokens: z.coerce.number().int().min(64).max(16384).optional(),
+    /** Rate limiting por proveedor: null/ausente = sin límite. */
+    rateLimitPerMinute: z.coerce.number().int().min(1).max(10000).nullable().optional(),
+    rateLimitPerDay: z.coerce.number().int().min(1).max(1_000_000).nullable().optional(),
     /** La clave solo se envía para crear/rotar; nunca se devuelve por GET. */
     apiToken: z.string().max(500).optional(),
   })
@@ -46,6 +49,8 @@ export const AgentProviderTestSchema = z.object({
 /** Perfil de comportamiento del agente. */
 export const AgentProfileUpdateSchema = z.object({
   enabled: z.boolean().optional(),
+  /** Tools de dominio (function calling sobre inventario/logs/alertas/incidentes). */
+  toolsEnabled: z.boolean().optional(),
   name: z.string().min(1, "El nombre del agente es requerido").max(120).optional(),
   tone: z.string().max(8000).nullish(),
   instructions: z.string().max(32000).nullish(),

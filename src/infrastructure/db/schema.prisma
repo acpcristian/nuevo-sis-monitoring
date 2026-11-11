@@ -619,6 +619,10 @@ model AgentProviderConfig {
   authTag           String?   @map("auth_tag")
   keyFingerprint    String?   @map("key_fingerprint")
   isActive          Boolean   @default(false) @map("is_active")
+  /// Rate limiting por proveedor (nullable = sin límite). Ventana deslizante
+  /// por minuto y cuota por día UTC, aplicadas en el chat del agente.
+  rateLimitPerMinute Int?     @map("rate_limit_per_minute")
+  rateLimitPerDay   Int?      @map("rate_limit_per_day")
   lastTestAt        DateTime? @map("last_test_at")
   lastTestStatus    String?   @map("last_test_status")
   lastTestLatencyMs Int?      @map("last_test_latency_ms")
@@ -633,6 +637,9 @@ model AgentProviderConfig {
 model AgentProfile {
   id              String   @id @default("agent-profile-default")
   enabled         Boolean  @default(false)
+  /// Tools de dominio (function calling): cuando está activo el agente puede
+  /// consultar inventario/logs/alertas/incidentes reales durante el turno.
+  toolsEnabled    Boolean  @default(true) @map("tools_enabled")
   name            String   @default("Agente de Operaciones")
   tone            String?  @db.Text
   instructions    String?  @db.Text

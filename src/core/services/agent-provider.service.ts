@@ -1,5 +1,6 @@
 import { prisma } from "@/infrastructure/db/prisma";
 import { SecretVault } from "@/infrastructure/crypto/secret-vault";
+import { AgentGuardService } from "@/core/services/agent-guard.service";
 import { DomainError, NotFoundError } from "@/shared/errors/domain-errors";
 import {
   getProviderPreset,
@@ -21,6 +22,8 @@ export interface AgentProviderDto {
   model: string;
   temperature: number;
   maxOutputTokens: number;
+  rateLimitPerMinute: number | null;
+  rateLimitPerDay: number | null;
   requiresApiKey: boolean;
   hasApiKey: boolean;
   keyFingerprint: string | null;
@@ -92,6 +95,12 @@ export class AgentProviderService {
       model: input.model.trim(),
       temperature: input.temperature ?? existing?.temperature ?? 0.4,
       maxOutputTokens: input.maxOutputTokens ?? existing?.maxOutputTokens ?? 2048,
+      rateLimitPerMinute:
+        input.rateLimitPerMinute === undefined
+          ? existing?.rateLimitPerMinute ?? null
+          : input.rateLimitPerMinute,
+      rateLimitPerDay:
+        input.rateLimitPerDay === undefined ? existing?.rateLimitPerDay ?? null : input.rateLimitPerDay,
       ...(cipher
         ? {
             encryptedPayload: cipher.encryptedPayload,
@@ -116,6 +125,9 @@ export class AgentProviderService {
       }
       return tx.agentProviderConfig.create({ data });
     });
+
+    // Nueva configuración → estado fresco del guardián (rate limit + breaker).
+    AgentGuardService.reset(saved.id);
 
     return this.toDto(saved);
   }
@@ -226,10 +238,13 @@ export class AgentProviderService {
 
   /** Descifra y devuelve el token del proveedor activo (uso interno del chat). */
   public static async getActiveCredentials(): Promise<{
+    id: string;
     baseUrl: string;
     model: string;
     temperature: number;
     maxOutputTokens: number;
+    rateLimitPerMinute: number | null;
+    rateLimitPerDay: number | null;
     apiToken: string | null;
   } | null> {
     const active = await prisma.agentProviderConfig.findFirst({ where: { isActive: true } });
@@ -239,10 +254,13 @@ export class AgentProviderService {
         ? SecretVault.decryptSecret(active.encryptedPayload, active.iv, active.authTag)
         : null;
     return {
+      id: active.id,
       baseUrl: active.baseUrl,
       model: active.model,
       temperature: active.temperature,
       maxOutputTokens: active.maxOutputTokens,
+      rateLimitPerMinute: active.rateLimitPerMinute,
+      rateLimitPerDay: active.rateLimitPerDay,
       apiToken,
     };
   }
@@ -255,6 +273,8 @@ export class AgentProviderService {
     model: string;
     temperature: number;
     maxOutputTokens: number;
+    rateLimitPerMinute: number | null;
+    rateLimitPerDay: number | null;
     keyFingerprint: string | null;
     encryptedPayload: string | null;
     isActive: boolean;
@@ -276,6 +296,8 @@ export class AgentProviderService {
       model: row.model,
       temperature: row.temperature,
       maxOutputTokens: row.maxOutputTokens,
+      rateLimitPerMinute: row.rateLimitPerMinute,
+      rateLimitPerDay: row.rateLimitPerDay,
       requiresApiKey: getProviderPreset(row.providerType)?.requiresApiKey ?? true,
       hasApiKey: Boolean(row.encryptedPayload),
       keyFingerprint: row.keyFingerprint,

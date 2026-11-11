@@ -1,15 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import { RbacGuard } from "@/infrastructure/security/rbac-guard";
-import { LlmChatService, LlmProviderError, NoProviderConfiguredError } from "@/core/services/llm-chat.service";
+import {
+  LlmChatService,
+  LlmProviderError,
+  NoProviderConfiguredError,
+} from "@/core/services/llm-chat.service";
+import { CircuitOpenError, RateLimitedError } from "@/core/services/agent-guard.service";
 import { AgentChatRequestSchema } from "@/shared/validations/agent.schema";
 import { DomainError } from "@/shared/errors/domain-errors";
 
 /**
  * Chat de prueba del agente con streaming SSE.
  * Eventos del stream:
- *  - `delta`  { text }          → fragmento incremental de la respuesta
- *  - `done`   { latencyMs }     → turno completado
- *  - `error`  { message, code } → fallo tolerado (proveedor, timeout, config)
+ *  - `delta`  { text }                        → fragmento incremental de la respuesta
+ *  - `tool`   { name, summary }               → el agente consultó una herramienta de dominio
+ *  - `done`   { latencyMs, chars, tools }     → turno completado
+ *  - `error`  { message, code, retry_after? } → fallo tolerado (proveedor, timeout, config, límites)
  */
 export async function POST(request: NextRequest) {
   let user;
@@ -65,16 +71,32 @@ export async function POST(request: NextRequest) {
         const result = await LlmChatService.streamChatTurn(
           validatedInput.message,
           validatedInput.history ?? [],
-          (delta) => send("delta", { text: delta })
+          {
+            onDelta: (delta) => send("delta", { text: delta }),
+            onTool: (summary) => send("tool", { name: summary.split("(")[0] ?? summary, summary }),
+          }
         );
         send("done", {
           latencyMs: Date.now() - started,
           firstTokenMs: result.firstTokenMs,
           chars: result.fullText.length,
+          tools: result.toolInvocations,
         });
       } catch (error: unknown) {
         if (error instanceof NoProviderConfiguredError) {
           send("error", { code: "NO_PROVIDER", message: "Configura primero un proveedor de IA en la sección Proveedor." });
+        } else if (error instanceof RateLimitedError) {
+          send("error", {
+            code: "RATE_LIMITED",
+            message: `Se alcanzó el límite de uso del agente (${error.limit} por ${error.window === "minute" ? "minuto" : "día"}). Reintenta en ${error.retryAfterSeconds} s.`,
+            retry_after_seconds: error.retryAfterSeconds,
+          });
+        } else if (error instanceof CircuitOpenError) {
+          send("error", {
+            code: "CIRCUIT_OPEN",
+            message: `El proveedor está fallando repetidamente: el circuito se abrió para proteger el turno. Reintenta en ${error.retryAfterSeconds} s.`,
+            retry_after_seconds: error.retryAfterSeconds,
+          });
         } else if (error instanceof LlmProviderError) {
           send("error", { code: `PROVIDER_${error.status}`, message: friendlyChatError(error.status, error.message) });
         } else if (error instanceof Error && error.name === "AbortError") {
