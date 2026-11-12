@@ -7,6 +7,7 @@
  */
 export type LlmProviderType =
   | "OPENROUTER"
+  | "FREELLMAPI"
   | "OPENAI"
   | "ANTHROPIC"
   | "DEEPSEEK"
@@ -49,6 +50,25 @@ export const LLM_PROVIDER_PRESETS: LlmProviderPreset[] = [
       { id: "liquid/lfm-2.5-2.6b:free", label: "Liquid LFM 2.5", tag: "Gratuito · ultraligero", free: true },
       { id: "deepseek/deepseek-chat", label: "DeepSeek V3", tag: "De pago · gran rendimiento" },
       { id: "anthropic/claude-3.5-sonnet", label: "Claude 3.5 Sonnet", tag: "De pago · calidad superior" },
+    ],
+  },
+  {
+    type: "FREELLMAPI",
+    name: "FreeLLM API",
+    badge: "Router gratis · 635 modelos",
+    // FreeLLMAPI es un router auto-alojado (docker/npx): su puerto default es
+    // 3001 y expone /v1 compatible OpenAI con streaming y tool calling.
+    defaultBaseUrl: "http://127.0.0.1:3001/v1",
+    apiKeyHelpUrl: "https://github.com/tashfeenahmed/freellmapi",
+    tokenPrefixPlaceholder: "freellmapi-...",
+    requiresApiKey: true,
+    models: [
+      // Modelos virtuales del router: "auto" elige el mejor endpoint libre
+      // disponible y "fusion" sintetiza un panel de modelos con un juez.
+      // El catálogo completo (635 endpoints) vive en freellmapi.co/models;
+      // cualquier id del catálogo se puede escribir manualmente.
+      { id: "auto", label: "Auto — el router elige", tag: "Gratuito · failover automático", free: true },
+      { id: "fusion", label: "Fusion — multi-modelo", tag: "Gratuito · panel + juez", free: true },
     ],
   },
   {
@@ -140,5 +160,7 @@ export function detectProviderType(baseUrl: string): LlmProviderType {
   if (url.includes("deepseek.com")) return "DEEPSEEK";
   if (url.includes("groq.com")) return "GROQ";
   if (url.includes("11434")) return "OLLAMA_LOCAL";
+  // FreeLLMAPI auto-alojado: por nombre de host o su puerto default 3001 + /v1.
+  if (url.includes("freellmapi") || /:(127\.0\.0\.1|localhost):3001\/v1/.test(url)) return "FREELLMAPI";
   return "CUSTOM";
 }

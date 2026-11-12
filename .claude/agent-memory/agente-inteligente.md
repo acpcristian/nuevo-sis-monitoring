@@ -42,3 +42,9 @@ Knowledge Base (QA+bloques), historial de conversaciones persistido con métrica
 - UI: KnowledgeCard (tabs QA/Bloques, toggle, contador X/24000) + HistoryCard (5 stats, paginado, expandible, Exportar JSON, eliminar) + ChatCard con conversationId y chip "~tk".
 - Zod max(24000) en content rechaza ANTES del presupuesto del servicio: para probar KB_BUDGET_EXCEEDED usar contenido que pase Zod pero exceda el total (p.ej. 23900 con otras entradas activas).
 - Pendiente fase 2 restante (pedido explícito): Anthropic directo, media con reglas (requiere R2), usage REAL de tokens del proveedor (hoy estimado chars/4), pricing por modelo.
+
+## Proveedor FreeLLM API (2026-11-11)
+- Agregado preset `FREELLMAPI` (pedido del dueño): router auto-alojado OpenAI-compatible (https://github.com/tashfeenahmed/freellmapi), 635 endpoints gratis, puerto default 3001 → baseUrl `http://127.0.0.1:3001/v1`, clave unificada `freellmapi-...` del dashboard.
+- Modelos virtuales `auto` (el router elige) y `fusion` (síntesis multi-modelo con juez); cualquier id del catálogo (freellmapi.co/models) se escribe manualmente en el select.
+- Solo tocó `llm-providers.ts` (union + preset + detect por "freellmapi" o `:3001/v1`) y `LLM_PROVIDER_TYPES` en agent.schema.ts — la capa backend/chat/tools es genérica OpenAI-compatible y no necesita cambios.
+- Verificado E2E con mock local del router en :3001: `/agent/provider/test` OK (12ms) con clave válida y 401 amigable con clave mala. NO se tocó el proveedor activo (el endpoint de test es stateless).

@@ -2,6 +2,7 @@ import { z } from "zod";
 
 export const LLM_PROVIDER_TYPES = [
   "OPENROUTER",
+  "FREELLMAPI",
   "OPENAI",
   "ANTHROPIC",
   "DEEPSEEK",
