@@ -1,0 +1,25 @@
+- generic [active] [ref=e1]:
+  - main [ref=e2]:
+    - generic [ref=e3]:
+      - generic [ref=e4]:
+        - generic [ref=e5]: T
+        - generic [ref=e6]:
+          - heading "TOI Internet" [level=1] [ref=e7]
+          - paragraph [ref=e8]: CRM de WhatsApp con agente de IA
+      - generic [ref=e9]:
+        - generic [ref=e10]:
+          - img "CRM TOI" [ref=e11]
+          - heading "Iniciar sesión" [level=3] [ref=e12]
+        - generic [ref=e14]:
+          - generic [ref=e15]:
+            - text: Correo
+            - textbox "Correo" [ref=e16]
+          - generic [ref=e17]:
+            - text: Contraseña
+            - textbox "Contraseña" [ref=e18]
+          - button "Entrar" [ref=e19] [cursor=pointer]
+          - paragraph [ref=e20]:
+            - text: ¿Primera vez aquí?
+            - link "Crear la cuenta inicial" [ref=e21] [cursor=pointer]:
+              - /url: /register
+  - alert [ref=e22]
