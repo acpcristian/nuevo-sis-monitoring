@@ -33,6 +33,8 @@ export interface LlmProviderPreset {
   /** El proveedor funciona sin clave API (Ollama local). */
   requiresApiKey: boolean;
   models: LlmModelPreset[];
+  /** Nota de ayuda bajo el campo de modelo (específica del proveedor). */
+  modelHint?: string;
 }
 
 export const LLM_PROVIDER_PRESETS: LlmProviderPreset[] = [
@@ -44,6 +46,7 @@ export const LLM_PROVIDER_PRESETS: LlmProviderPreset[] = [
     apiKeyHelpUrl: "https://openrouter.ai/keys",
     tokenPrefixPlaceholder: "sk-or-v1-...",
     requiresApiKey: true,
+    modelHint: "La capa gratuita de OpenRouter rota constantemente; si un modelo deja de estar disponible, escribe aquí su slug.",
     models: [
       { id: "nvidia/nemotron-3.5-super-vl:free", label: "Nemotron 3.5 Super", tag: "Gratuito · muy capaz", free: true },
       { id: "google/gemma-4-31b-it:free", label: "Gemma 4 31B", tag: "Gratuito · rotación upstream", free: true },
@@ -63,6 +66,7 @@ export const LLM_PROVIDER_PRESETS: LlmProviderPreset[] = [
     apiKeyHelpUrl: "https://github.com/tashfeenahmed/freellmapi",
     tokenPrefixPlaceholder: "freellmapi-...",
     requiresApiKey: true,
+    modelHint: "El catálogo de FreeLLM API se actualiza solo: usa «auto» o escribe cualquier id de freellmapi.co/models.",
     models: [
       // Modelos virtuales del router: "auto" elige el mejor endpoint libre
       // disponible y "fusion" sintetiza un panel de modelos con un juez.

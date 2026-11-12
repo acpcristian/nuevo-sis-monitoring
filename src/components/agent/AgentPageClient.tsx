@@ -260,7 +260,7 @@ function ProviderCard({ onSaved }: { onSaved: () => void }) {
             />
           )}
           <p className="mt-1 text-[11px] text-slate-400">
-            La capa gratuita de OpenRouter rota constantemente; si un modelo deja de estar disponible, escribe aquí su slug.
+            {preset?.modelHint ?? "Escribe aquí el id del modelo si no está en la lista."}
           </p>
           {preset?.apiKeyHelpUrl && (
             <a href={preset.apiKeyHelpUrl} target="_blank" rel="noreferrer" className="mt-1 inline-block text-[11px] text-indigo-600 hover:underline">
