@@ -56,9 +56,10 @@ export const LLM_PROVIDER_PRESETS: LlmProviderPreset[] = [
     type: "FREELLMAPI",
     name: "FreeLLM API",
     badge: "Router gratis · 635 modelos",
-    // FreeLLMAPI es un router auto-alojado (docker/npx): su puerto default es
-    // 3001 y expone /v1 compatible OpenAI con streaming y tool calling.
-    defaultBaseUrl: "http://127.0.0.1:3001/v1",
+    // FreeLLM API es un router auto-alojado (docker/npx): expone /v1 compatible
+    // OpenAI con streaming y tool calling. En producción vive en el servidor de
+    // Coolify (172.16.100.22:3001); para una instancia local usar 127.0.0.1.
+    defaultBaseUrl: "http://172.16.100.22:3001/v1",
     apiKeyHelpUrl: "https://github.com/tashfeenahmed/freellmapi",
     tokenPrefixPlaceholder: "freellmapi-...",
     requiresApiKey: true,
