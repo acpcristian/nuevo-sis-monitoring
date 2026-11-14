@@ -441,6 +441,7 @@ enum ChannelType {
   SLACK
   WEBHOOK
   PAGERDUTY
+  TELEGRAM
 }
 
 enum ChannelStatus {
@@ -704,4 +705,33 @@ model AgentMessage {
 
   @@index([conversationId, createdAt])
   @@map("agent_messages")
+}
+
+// =============================================================================
+// 015 — Integración MCP para agentes externos (Hermes por Telegram)
+// =============================================================================
+
+enum ServiceKeyStatus {
+  ACTIVE
+  REVOKED
+}
+
+/// Clave de API de servicio para integraciones de agentes externos (MCP).
+/// SOLO se guarda el hash SHA-256; la clave en claro se muestra una única vez
+/// al crearla (Principio III). Las tools expuestas son de solo lectura más
+/// `crear_incidente` (Opción A); el control de servicios NO se expone por MCP.
+model ServiceApiKey {
+  id          String           @id @default(uuid())
+  name        String           @unique
+  keyHash     String           @unique @map("key_hash")
+  fingerprint String
+  status      ServiceKeyStatus @default(ACTIVE)
+  /// Scopes otorgados: p.ej. ["mcp:read", "mcp:create_incident"].
+  scopes      String[]         @default([])
+  lastUsedAt  DateTime?        @map("last_used_at")
+  createdBy   String?          @map("created_by")
+  createdAt   DateTime         @default(now()) @map("created_at")
+  updatedAt   DateTime         @updatedAt @map("updated_at")
+
+  @@map("service_api_keys")
 }

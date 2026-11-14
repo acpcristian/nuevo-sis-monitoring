@@ -58,6 +58,11 @@ export const AUDIT_ACTIONS = [
   "USER_UPDATED",
   "USER_PASSWORD_RESET",
   "USER_PASSWORD_CHANGED",
+
+  // Integraciones de agentes externos (MCP)
+  "API_KEY_CREATED",
+  "API_KEY_REVOKED",
+  "MCP_TOOL_CALL",
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
@@ -149,6 +154,14 @@ export const AUDIT_ACTION_GROUPS: AuditActionGroup[] = [
       { value: "AGENT_PROFILE_UPDATED", label: "Comportamiento del agente actualizado" },
       { value: "AGENT_KB_UPDATED", label: "Base de conocimiento del agente actualizada" },
       { value: "AGENT_CONVERSATION_STARTED", label: "Conversación del agente iniciada" },
+    ],
+  },
+  {
+    label: "Integraciones (MCP)",
+    actions: [
+      { value: "API_KEY_CREATED", label: "Clave de servicio creada" },
+      { value: "API_KEY_REVOKED", label: "Clave de servicio revocada" },
+      { value: "MCP_TOOL_CALL", label: "Tool MCP invocada por agente externo" },
     ],
   },
 ];

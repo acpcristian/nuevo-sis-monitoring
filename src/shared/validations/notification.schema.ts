@@ -26,7 +26,7 @@ export const NotificationCategoryUpdateSchema = NotificationCategoryCreateSchema
 });
 
 /** Canales de notificación. */
-export const ChannelTypeSchema = z.enum(["EMAIL", "SLACK", "WEBHOOK", "PAGERDUTY"]);
+export const ChannelTypeSchema = z.enum(["EMAIL", "SLACK", "WEBHOOK", "PAGERDUTY", "TELEGRAM"]);
 export const ChannelStatusSchema = z.enum(["ACTIVE", "INACTIVE"]);
 
 export const ChannelCreateSchema = z.object({

@@ -5,7 +5,7 @@ import { NotFoundError, ConflictError } from "@/shared/errors/domain-errors";
 import { AuditService } from "@/core/services/audit.service";
 import type { Prisma } from "@prisma/client";
 
-export type ChannelType = "EMAIL" | "SLACK" | "WEBHOOK" | "PAGERDUTY";
+export type ChannelType = "EMAIL" | "SLACK" | "WEBHOOK" | "PAGERDUTY" | "TELEGRAM";
 export type ChannelStatus = "ACTIVE" | "INACTIVE";
 export type DeliveryStatus = "SENT" | "FAILED" | "RETRYING";
 
@@ -23,6 +23,9 @@ export interface ChannelConfig {
   webhookUrl?: string;
   routingKey?: string;
   headers?: Record<string, string>;
+  // TELEGRAM: Bot API directa (botToken + chatId destino)
+  botToken?: string;
+  chatId?: string;
 }
 
 export interface ChannelPresenter {
@@ -45,7 +48,7 @@ export interface ChannelPresenter {
 
 interface ChannelRow {
   id: string;
-  type: "EMAIL" | "SLACK" | "WEBHOOK" | "PAGERDUTY";
+  type: "EMAIL" | "SLACK" | "WEBHOOK" | "PAGERDUTY" | "TELEGRAM";
   name: string;
   description: string | null;
   status: "ACTIVE" | "INACTIVE";
@@ -142,6 +145,10 @@ export class NotificationService {
       } catch {
         summary.host = "(configurado)";
       }
+    }
+    if (type === "TELEGRAM") {
+      // El botToken NUNCA aparece en el resumen (Principio III).
+      summary.chatId = config.chatId ?? null;
     }
     return summary;
   }
@@ -474,6 +481,8 @@ export class NotificationService {
         return this.deliverPagerDuty(config, title, body);
       case "EMAIL":
         return this.deliverEmail(config, title, body);
+      case "TELEGRAM":
+        return this.deliverTelegram(config, title, body);
       default:
         throw new Error("Tipo de canal no soportado.");
     }
@@ -559,6 +568,40 @@ export class NotificationService {
     }
     const json = (await res.json()) as { dedup_key?: string };
     return json.dedup_key;
+  }
+
+  /**
+   * Cuerpo del mensaje Telegram (texto plano sin parse_mode para no requerir
+   * escapado de markdown/HTML en títulos ni contenido dinámico).
+   */
+  public static formatTelegramMessage(title: string, body: { text: string; severity: string }): string {
+    const header = `[${body.severity}] ${title}`;
+    return body.text ? `${header}\n${body.text}` : header;
+  }
+
+  private static async deliverTelegram(
+    config: ChannelConfig,
+    title: string,
+    body: { text: string; severity: string }
+  ): Promise<string | undefined> {
+    if (!config.botToken || !config.chatId) {
+      throw new Error("Configuración Telegram incompleta (botToken y chatId requeridos).");
+    }
+    const res = await this.fetchWithTimeout(`https://api.telegram.org/bot${config.botToken}/sendMessage`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        chat_id: config.chatId,
+        text: this.formatTelegramMessage(title, body),
+        disable_web_page_preview: true,
+      }),
+    });
+    if (!res.ok) {
+      const txt = await res.text().catch(() => "");
+      throw new Error(`Telegram respondió ${res.status}: ${txt.substring(0, 200)}`);
+    }
+    const json = (await res.json()) as { result?: { message_id?: number } };
+    return json.result?.message_id ? `telegram-${json.result.message_id}` : `telegram-${Date.now()}`;
   }
 
   private static async deliverEmail(
