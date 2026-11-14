@@ -21,7 +21,7 @@ Resultado: `running:healthy`, `/api/status` → 200, `/` → 302 (login). **Tele
 
 ## Estado de la integración Hermes↔Telegram↔Sistema
 - Telegram ↔ Hermes: **conectado y funcional** (conector nativo de Hermes; NO usa Evolution API). Evolution API quedó instalada y healthy, útil para WhatsApp (Hermes también tiene puente WhatsApp nativo; Evolution no es necesaria para Telegram).
-- Pendiente bloqueante: **proveedor LLM de Hermes** — los logs avisan `nous requested but Nous Portal not configured` (auxiliar); el agente necesita `OPENROUTER_API_KEY`/`ANTHROPIC_API_KEY`/etc. o login Nous Portal. Se puede inyectar por env del compose o `/opt/data/.env` (el .env del volumen GANA sobre el env del contenedor, con override=True).
+- Proveedor LLM: **OpenRouter** con la clave del dueño (env `OPENROUTER_API_KEY` del servicio en Coolify + compose patch5). Modelo activo `nvidia/nemotron-3-ultra-550b-a55b:free` (ya venía en config.yaml del volumen). Los warnings "nous requested but Nous Portal not configured" son solo del cliente AUXILIAR (resúmenes), no bloquean el agente principal.
 - Nota: `/opt/data/.env` (volumen del dueño) ya contiene `API_SERVER_KEY` y GANA sobre la env del contenedor (aviso stage2 en logs).
 
 ## Cómo manipular el servicio Hermes desde la API de Coolify (v4.7.5)
@@ -39,3 +39,24 @@ Resultado: `running:healthy`, `/api/status` → 200, `/` → 302 (login). **Tele
 1. MCP server HTTP en NUEVO SIS (`/api/v1/mcp`, auth por Bearer API key de servicio) con tools: servidores/salud, alertas, incidentes (crear con auditoría), resumen de logs, métricas. Hermes lo consume vía `mcp_servers:` en config.yaml con `url` + `Authorization: Bearer ${...}` y `trust` según alcance.
 2. Canal TELEGRAM de notificaciones push en NUEVO SIS (nuevo ChannelType) enviando directo a la Bot API con `TELEGRAM_BOT_TOKEN` del servidor → alertas/incidentes empujan al chat `884382309`.
 3. Configurar proveedor LLM de Hermes (clave del dueño).
+
+## ✅ INTEGRACIÓN IMPLEMENTADA Y VERIFICADA E2E (2026-11-14)
+Decisiones del dueño: OpenRouter como proveedor; **Opción A** (solo consultas + crear incidentes por Telegram); push de **TODAS** las categorías.
+
+Implementación en NUEVO SIS (deploy `36cba30`, commit "feat(integracion)"):
+- `ChannelType.TELEGRAM` (schema+validación+`deliverTelegram` Bot API directa, config cifrada AES-256-GCM, summary sin token). Migración `20261113000000` (ALTER TYPE + tabla `service_api_keys`). En producción el Dockerfile corre `prisma db push`, así que la migración es para paridad dev.
+- Servidor MCP **estadoless sin dependencias** en `/api/v1/mcp` (`src/core/services/mcp.service.ts` + route): JSON-RPC 2.0, `initialize`/`ping`/`tools/list`/`tools/call`, respuestas JSON directas (sin SSE). 7 tools: 5 de lectura reutilizando `AgentToolsService` + `crear_incidente` (auditada, actor `hermes-telegram`) + `estado_general`. NO expone control de servicios.
+- Claves de servicio: modelo `ServiceApiKey` (hash SHA-256, nunca en claro), CRUD `/api/v1/integration-keys` (solo SUPERADMIN; POST devuelve la clave UNA vez). Acciones de auditoría nuevas `API_KEY_CREATED/REVOKED`, `MCP_TOOL_CALL` + grupo en audit-actions.ts.
+- Tests: `tests/unit/api/mcp-protocol.test.ts`, `tests/unit/services/telegram-channel.test.ts` (mock de `AuditService.recordEvent` porque no hay BD en unit tests).
+
+Configuración de producción (verificada en vivo):
+- Login SUPERADMIN posible: las credenciales vienen de las envs de la app en Coolify (`SUPERADMIN_USER`/`SUPERADMIN_PASSWORD`, admin/9 chars). DNS local a veces no resuelve `nexocontrol` → usar `curl --resolve nexocontrol.elalto.gob.bo:443:172.16.100.22`.
+- Dominio real: **nexocontrol**.elalto.gob.bo (con "o"; nexcontrol no existe).
+- Clave de servicio creada: `hermes-telegram` (id `f3680bda-579c-4f76-bc2d-a6cf4c50c3fb`, fingerprint SHA256:7a05e761...; la clave en claro se registró en config de Hermes, NO está en git).
+- Canal TELEGRAM `telegram-operaciones` (id `af96b468-e0f0-415b-b42e-ab575356100a`, chatId 884382309, categories [] = todas). `POST /channels/{id}` vacío = test de canal.
+- MCP registrado en Hermes vía dashboard: `POST/PUT /api/mcp/servers` con `servers: {nexcontrol: {url, headers: {Authorization: Bearer <key>}, ssl_verify: false}}`. **`ssl_verify: false` es NECESARIO**: el cert de elalto.gob.bo usa una CA que el contenedor Python no confía; el `/test` del dashboard falla con `CERTIFICATE_VERIFY_FAILED` sin ese flag. IMPORTANTE: tras añadir/ editar MCP servers hay que **reiniciar el servicio en Coolify**, si no el runtime del gateway sigue con la config vieja e intenta OAuth (fallo visto en cron).
+- Pruebas E2E reales hechas con jobs cron one-shot (`POST /api/cron/jobs` con `deliver: "telegram"`, repetir `repeat: 1`, luego DELETE): (1) turno LLM puro OK, (2) turno usando tools MCP `estado_general` + `consultar_inventario` OK con entrega a Telegram sin errores. Auditoría del sistema registra `MCP_TOOL_CALL` actor `mcp:hermes-telegram` e `INCIDENT_CREATED` actor `hermes-telegram`.
+- Test de canal: mensaje de prueba entregado a Telegram ("Envío de prueba correcto").
+- Verificación pendiente humana: que el dueño escriba al bot por Telegram y responda el agente (los updates entrantes no pueden probarse sin su mensaje).
+
+Recetas Coolify nuevas aprendidas: deploy de la app = `POST /api/v1/deploy` con body JSON `{"uuid": ...}` en archivo (los guiones/trailing del form fallan); deployment status con `GET /api/v1/deployments/{deployment_uuid}`.
