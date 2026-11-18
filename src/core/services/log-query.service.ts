@@ -68,13 +68,22 @@ export class LogQueryService {
 
     if (params.serverId) {
       where.serverId = params.serverId;
+    } else if (params.includeRetired) {
+      // Si se pide explícitamente incluir retirados
+      if (!params.includeUnassigned) {
+        where.serverId = { not: null };
+      }
     } else if (!params.includeUnassigned && !params.includeRetired) {
-      // Solo logs de servidores vigentes del inventario: oculta eventos sin
-      // servidor asignado (típicamente ingesta de prueba) y servidores retirados.
-      where.server = { lifecycleState: { not: "RETIRED" } };
+      // Solo logs de servidores vigentes o eventos de logs existentes
+      where.OR = [
+        { server: { is: { lifecycleState: { not: "RETIRED" } } } },
+        { server: null }
+      ];
     } else if (params.includeUnassigned && !params.includeRetired) {
-      where.server = { lifecycleState: { not: "RETIRED" } };
-      where.OR = [{ server: { is: { lifecycleState: { not: "RETIRED" } } } }, { serverId: null }];
+      where.OR = [
+        { server: { is: { lifecycleState: { not: "RETIRED" } } } },
+        { serverId: null }
+      ];
     }
     if (params.category) {
       where.category = params.category;
