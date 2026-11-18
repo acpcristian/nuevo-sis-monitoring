@@ -249,8 +249,42 @@ if command -v systemctl >/dev/null 2>&1; then
   else
     informe "» systemd sin unidades consultables; servicios_systemd = []"
   fi
+elif command -v service >/dev/null 2>&1 || [ -d /etc/init.d ]; then
+  informe "» systemctl no presente; escaneando servicios SysVinit / /etc/init.d (solo lectura)..."
+  if command -v chkconfig >/dev/null 2>&1; then
+    init_servicios="$(chkconfig --list 2>/dev/null | awk '{print $1}' || true)"
+  elif [ -d /etc/init.d ]; then
+    init_servicios="$(ls /etc/init.d 2>/dev/null || true)"
+  fi
+
+  if [ -n "$init_servicios" ]; then
+    # Filtrar contra palabras clave relevantes de infraestructura
+    unidades_init="$(printf '%s\n' "$init_servicios" | grep -Ei '^(nginx|httpd|apache2?|lighttpd|caddy|mysql|mariadb|mysqld|postgres(ql)?|mongodb?|mongod|redis(-server)?|memcached|elasticsearch|kafka|rabbitmq|tomcat|jetty|php[0-9.]*-fpm|sshd?)$' || true)"
+    if [ -n "$unidades_init" ]; then
+      while IFS= read -r u_init; do
+        [ -z "$u_init" ] && continue
+        # Consultar estado sin detener ni alterar
+        st_out="$(service "$u_init" status 2>/dev/null || true)"
+        u_estado="stopped"
+        if printf '%s' "$st_out" | grep -Eqi 'running|active|is running|en ejecución'; then
+          u_estado="active"
+        fi
+        u_puertos="$(puertos_de_unidad "" "$u_init")"
+        item_json="$(printf '{"nombre":"%s.service","estado":"%s","puertos":"%s","descripcion":"%s"}' \
+          "$(json_escape "$u_init")" "$(json_escape "$u_estado")" \
+          "$(json_escape "${u_puertos:-}")" "$(json_escape "Servicio SysVinit /etc/init.d/${u_init}")")"
+        if [ -z "$acum_ss" ]; then
+          acum_ss="$item_json"
+        else
+          acum_ss="${acum_ss},${item_json}"
+        fi
+      done <<< "$unidades_init"
+      [ -n "$acum_ss" ] && servicios_systemd_json="[${acum_ss}]"
+      informe "» SysVinit: servicios recolectados exitosamente"
+    fi
+  fi
 else
-  informe "» systemctl NO disponible (¿Alpine/OpenRC?); servicios_systemd = []"
+  informe "» Ni systemctl ni service/init.d disponibles; servicios_systemd = []"
 fi
 
 # =============================================================================

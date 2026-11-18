@@ -79,22 +79,23 @@ export class ServiceControlService {
           break;
       }
     } else {
-      // systemd: agregar --no-ask-password para evitar cuelgues interactivos de PolicyKit
+      // Soporte universal: systemd (moderno) con fallback automático a service/chkconfig (SysVinit/CentOS 6/init.d)
+      const baseName = serviceName.replace(/\.service$/, "");
       switch (action) {
         case "start":
-          rawCmd = `systemctl start --no-ask-password ${serviceName} || ${sudoPrefix} systemctl start --no-ask-password ${serviceName}`;
+          rawCmd = `if command -v systemctl >/dev/null 2>&1; then systemctl start --no-ask-password ${serviceName} || ${sudoPrefix} systemctl start --no-ask-password ${serviceName}; else ${sudoPrefix} service ${baseName} start || service ${baseName} start; fi`;
           break;
         case "stop":
-          rawCmd = `systemctl stop --no-ask-password ${serviceName} || ${sudoPrefix} systemctl stop --no-ask-password ${serviceName}`;
+          rawCmd = `if command -v systemctl >/dev/null 2>&1; then systemctl stop --no-ask-password ${serviceName} || ${sudoPrefix} systemctl stop --no-ask-password ${serviceName}; else ${sudoPrefix} service ${baseName} stop || service ${baseName} stop; fi`;
           break;
         case "restart":
-          rawCmd = `systemctl restart --no-ask-password ${serviceName} || ${sudoPrefix} systemctl restart --no-ask-password ${serviceName}`;
+          rawCmd = `if command -v systemctl >/dev/null 2>&1; then systemctl restart --no-ask-password ${serviceName} || ${sudoPrefix} systemctl restart --no-ask-password ${serviceName}; else ${sudoPrefix} service ${baseName} restart || service ${baseName} restart; fi`;
           break;
         case "enable":
-          rawCmd = `systemctl enable --no-ask-password ${serviceName} || ${sudoPrefix} systemctl enable --no-ask-password ${serviceName}`;
+          rawCmd = `if command -v systemctl >/dev/null 2>&1; then systemctl enable --no-ask-password ${serviceName} || ${sudoPrefix} systemctl enable --no-ask-password ${serviceName}; else ${sudoPrefix} chkconfig ${baseName} on || chkconfig ${baseName} on; fi`;
           break;
         case "disable":
-          rawCmd = `systemctl disable --no-ask-password ${serviceName} || ${sudoPrefix} systemctl disable --no-ask-password ${serviceName}`;
+          rawCmd = `if command -v systemctl >/dev/null 2>&1; then systemctl disable --no-ask-password ${serviceName} || ${sudoPrefix} systemctl disable --no-ask-password ${serviceName}; else ${sudoPrefix} chkconfig ${baseName} off || chkconfig ${baseName} off; fi`;
           break;
       }
     }
