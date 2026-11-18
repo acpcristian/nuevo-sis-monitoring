@@ -4,6 +4,7 @@ import { HttpProbe } from "@/infrastructure/network/http-probe";
 import { TcpProbe } from "@/infrastructure/network/tcp-probe";
 import { NotFoundError } from "@/shared/errors/domain-errors";
 import { deriveGlobalStatus, type GlobalServerStatus } from "@/core/domain/server.types";
+import { NotificationService } from "@/core/services/notification.service";
 
 /** Timeout duro por comprobación. El request nunca espera más que esto por sonda. */
 const HOST_TIMEOUT_MS = 3000;
@@ -306,6 +307,25 @@ export class ServerMonitoringService {
         },
       }),
     ]);
+
+    // Si el estado del servidor cambió a un estado crítico o degradado, emitir alerta push a Telegram
+    if (server.healthStatus !== healthStatus && (healthStatus === "UNREACHABLE" || healthStatus === "DEGRADED")) {
+      const affectedNames = server.services
+        .filter((s) => {
+          const out = outcomeById.get(s.id);
+          return out && out.status !== "RUNNING";
+        })
+        .map((s) => s.name);
+
+      NotificationService.sendNotification({
+        title: `Servidor ${server.name} en estado ${healthStatus}`,
+        message: `El servidor ${server.name} (${server.ipAddress}) cambió de ${server.healthStatus} a ${healthStatus}.\nReachable: ${reachable ? "Sí" : "No"}\nServicios afectados: ${affectedNames.join(", ") || "Ninguno"}`,
+        severity: healthStatus === "UNREACHABLE" ? "CRITICAL" : "MAJOR",
+        category: "AGENT_ERROR",
+      }).catch(() => {
+        // Silencioso ante fallos transitorios de red
+      });
+    }
 
     const outcomeById = new Map(serviceOutcomes.map((outcome) => [outcome.id, outcome]));
     const updatedServices = server.services.map((service) => {

@@ -9,6 +9,7 @@
 
 import { prisma } from "@/infrastructure/db/prisma";
 import { AuditService } from "@/core/services/audit.service";
+import { NotificationService } from "@/core/services/notification.service";
 import type { Prisma, LogCategory } from "@prisma/client";
 
 export interface AlertPatternInput {
@@ -192,6 +193,16 @@ export async function recordAlertPattern(
       severity,
     },
     ipAddress: userIp,
+  });
+
+  // Notificar inmediatamente al bot de Telegram u otros canales activos
+  NotificationService.sendNotification({
+    title: `Alerta de Logs [${severity}]: ${patternType}`,
+    message: `Severidad: ${severity}\nEventos correlacionados: ${eventCount}\nCategoría: ${category ?? "No especificada"}`,
+    severity: severity === "CRITICAL" ? "CRITICAL" : severity === "ERROR" ? "MAJOR" : "MINOR",
+    category: category ?? undefined,
+  }).catch(() => {
+    // No bloquea el flujo si falla la red
   });
 
   return { alertId: created.id, eventCount, wasMerged: false };

@@ -1,6 +1,7 @@
 import { prisma } from "@/infrastructure/db/prisma";
 import { NotFoundError, DomainError } from "@/shared/errors/domain-errors";
 import { AuditService } from "@/core/services/audit.service";
+import { NotificationService } from "@/core/services/notification.service";
 import type { Prisma } from "@prisma/client";
 
 export type IncidentStatus = "OPEN" | "ASSIGNED" | "IN_PROGRESS" | "RESOLVED" | "CLOSED";
@@ -228,6 +229,16 @@ export class IncidentService {
         priority: created.priority,
       },
       ipAddress: ipAddress ?? null,
+    });
+
+    // Despacho no bloqueante de notificación hacia los canales activos (ej. Telegram)
+    NotificationService.sendNotification({
+      title: `Incidente Creado [${created.priority}]: ${created.title}`,
+      message: `Categoría: ${created.category}\nPrioridad: ${created.priority}\nServidor: ${created.server?.name ?? "General"}\nDescripción: ${created.description.slice(0, 300)}`,
+      severity: created.priority === "CRITICAL" ? "CRITICAL" : created.priority === "HIGH" ? "MAJOR" : "MINOR",
+      category: created.category,
+    }).catch(() => {
+      // No bloquea la creación del incidente si falla la red
     });
 
     return present(created as unknown as PrismaIncidentRow);
