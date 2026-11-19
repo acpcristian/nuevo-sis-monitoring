@@ -73,17 +73,10 @@ export class LogQueryService {
       if (!params.includeUnassigned) {
         where.serverId = { not: null };
       }
-    } else if (!params.includeUnassigned && !params.includeRetired) {
-      // Solo logs de servidores vigentes o eventos de logs existentes
-      where.OR = [
-        { server: { is: { lifecycleState: { not: "RETIRED" } } } },
-        { server: null }
-      ];
-    } else if (params.includeUnassigned && !params.includeRetired) {
-      where.OR = [
-        { server: { is: { lifecycleState: { not: "RETIRED" } } } },
-        { serverId: null }
-      ];
+    } else {
+      // Por defecto en la vista de logs: mostrar todos los eventos registrados
+      // (sin descartar eventos históricos ni eventos sin servidor asignado).
+      // Si el servidor fue retirado, se sigue mostrando el log para auditoría.
     }
     if (params.category) {
       where.category = params.category;
