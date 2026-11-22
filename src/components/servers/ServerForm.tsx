@@ -56,6 +56,23 @@ export function ServerForm({
   const [servicio, setServicio] = useState("");
   const [tagsInput, setTagsInput] = useState("");
 
+  const defaultSecretarias = [
+    "DESPACHO MUNICIPAL",
+    "SECRETARÍA MUNICIPAL DE GESTIÓN INSTITUCIONAL",
+    "SECRETARÍA MUNICIPAL DE ADMINISTRACIÓN Y FINANZAS",
+    "SECRETARÍA MUNICIPAL DE MOVILIDAD URBANA",
+    "SECRETARÍA MUNICIPAL DE EDUCACIÓN Y CULTURA",
+    "SECRETARÍA MUNICIPAL DE DESARROLLO HUMANO Y SOCIAL INTEGRAL",
+    "SECRETARÍA MUNICIPAL DE SEGURIDAD CIUDADANA",
+    "SECRETARÍA MUNICIPAL DE SALUD",
+    "SECRETARÍA MUNICIPAL DE INFRAESTRUCTURA PÚBLICA",
+    "SECRETARÍA MUNICIPAL DE AGUA, SANEAMIENTO, GESTIÓN AMBIENTAL Y RIESGOS",
+    "SECRETARÍA MUNICIPAL DE DESARROLLO ECONÓMICO",
+  ];
+  const allSecretariaOptions = Array.from(
+    new Set([...defaultSecretarias, ...secretariaOptions])
+  );
+
   const handleOsChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const val = e.target.value as "LINUX" | "WINDOWS" | "OTHER";
     setOsType(val);
@@ -364,7 +381,7 @@ export function ServerForm({
             className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 text-sm"
           />
           <datalist id="secretaria-options">
-            {secretariaOptions.map((option) => (
+            {allSecretariaOptions.map((option) => (
               <option key={option} value={option} />
             ))}
           </datalist>

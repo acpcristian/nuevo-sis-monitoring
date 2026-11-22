@@ -81,7 +81,15 @@ const ESTADO_GENERAL_TOOL: McpToolDefinition = {
   inputSchema: { type: "object", properties: {} },
 };
 
-const READ_TOOLS = new Set(["consultar_inventario", "detalle_servidor", "consultar_logs", "consultar_alertas", "consultar_incidentes"]);
+const READ_TOOLS = new Set([
+  "consultar_inventario",
+  "consultar_organizacion",
+  "reporte_por_categoria",
+  "detalle_servidor",
+  "consultar_logs",
+  "consultar_alertas",
+  "consultar_incidentes",
+]);
 
 export interface McpCallContext {
   /** Nombre de la clave de servicio que autenticó la petición. */
@@ -220,7 +228,7 @@ export class McpService {
           capabilities: { tools: { listChanged: false } },
           serverInfo: SERVER_INFO,
           instructions:
-            "Servidor MCP del sistema de monitoreo NUEVO SIS. Tools de solo lectura (inventario, logs, alertas, incidentes, estado general) más crear_incidente (auditada). El control de servicios NO está disponible vía MCP.",
+            "Servidor MCP del sistema de monitoreo NUEVO SIS. Tools de solo lectura (inventario, organización por categorías y etiquetas, logs, alertas, incidentes, estado general) más crear_incidente (auditada). Usa consultar_organizacion para distinguir categorías y etiquetas de las unidades. El control de servicios NO está disponible vía MCP.",
         };
         return { httpStatus: 200, body: { jsonrpc: "2.0", id: request.id ?? null, result } };
       }

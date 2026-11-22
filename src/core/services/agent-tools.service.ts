@@ -1,5 +1,11 @@
 import { prisma } from "@/infrastructure/db/prisma";
 import { DomainError } from "@/shared/errors/domain-errors";
+import { OrgTaxonomyService } from "@/core/services/org-taxonomy.service";
+import { ServerQueryService } from "@/core/services/server-query.service";
+import {
+  buildOrgUnitIndex,
+  normalizedSecretariaKey,
+} from "@/core/domain/org-taxonomy";
 
 /**
  * Tools de dominio del agente (function calling, SOLO lectura).
@@ -26,7 +32,7 @@ const TOOL_CATALOG: AgentToolDefinition[] = [
   {
     name: "consultar_inventario",
     description:
-      "Lista los servidores registrados con su IP, ambiente, estado de salud, ciclo de vida y servicios. Opcionalmente filtra por ambiente o salud.",
+      "Lista los servidores registrados con su IP, ambiente, estado de salud, ciclo de vida, unidad organizacional, categoría, etiquetas y el detalle de sus servicios (nombre, estado, puerto, verificación). Opcionalmente filtra por ambiente, salud, categoría de entidad ('despacho' o 'secretarias') o etiqueta. Úsala para listar servidores individuales y auditar sus servicios; para un resumen agregado por categoría usa reporte_por_categoria.",
     parameters: {
       type: "object",
       properties: {
@@ -40,9 +46,51 @@ const TOOL_CATALOG: AgentToolDefinition[] = [
           description: "Filtrar por estado de salud",
           enum: ["ONLINE", "DEGRADED", "UNREACHABLE", "AUTH_FAILED", "PENDING"],
         },
+        categoria: {
+          type: "string",
+          description:
+            "Filtrar por categoría de entidad (nombre o slug), p. ej. 'despacho' (Despacho Municipal), 'secretarias' (Secretarías Municipales), 'subalcaldias', etc.",
+        },
+        etiqueta: {
+          type: "string",
+          description: "Filtrar por etiqueta de la unidad, p. ej. 'Alcaldía', 'Gabinete', 'Finanzas' o 'Salud'",
+        },
       },
     },
   },
+  {
+    name: "consultar_organizacion",
+    description:
+      "Estructura organizacional completa: categorías de entidad (Despacho Municipal, Secretarías Municipales, Subalcaldías…), unidades de cada categoría, sus etiquetas y cantidad de servidores. Úsala para distinguir categorías y etiquetas antes de responder o filtrar el inventario, y para saber qué categorías existen (incluyendo Despacho Municipal).",
+    parameters: {
+      type: "object",
+      properties: {
+        categoria: {
+          type: "string",
+          description: "Filtrar por categoría de entidad (nombre o slug, opcional)",
+        },
+        etiqueta: {
+          type: "string",
+          description: "Filtrar por etiqueta exacta de unidad (opcional)",
+        },
+      },
+    },
+  },
+  {
+    name: "reporte_por_categoria",
+    description:
+      "Genera un reporte agregado de servidores agrupado por categoría de entidad (Despacho Municipal, Secretarías Municipales, Subalcaldías, Empresas Públicas, Direcciones y Unidades). Devuelve el total de servidores, operativos, con advertencias y sin conexión por categoría y por unidad. Úsalo cuando te pidan un reporte de estado por categoría o por secretaría/despacho.",
+    parameters: {
+      type: "object",
+      properties: {
+        categoria: {
+          type: "string",
+          description: "Filtrar solo por una categoría específica (nombre o slug, opcional). Si se omite, se reportan todas las categorías.",
+        },
+      },
+    },
+  },
+
   {
     name: "detalle_servidor",
     description:
@@ -140,6 +188,10 @@ export class AgentToolsService {
     switch (name) {
       case "consultar_inventario":
         return this.consultarInventario(args);
+      case "consultar_organizacion":
+        return this.consultarOrganizacion(args);
+      case "reporte_por_categoria":
+        return this.reportePorCategoria(args);
       case "detalle_servidor":
         return this.detalleServidor(args);
       case "consultar_logs":
@@ -174,44 +226,340 @@ export class AgentToolsService {
   private static async consultarInventario(args: Record<string, unknown>): Promise<unknown> {
     const environment = typeof args.environment === "string" ? args.environment.toUpperCase() : undefined;
     const healthStatus = typeof args.healthStatus === "string" ? args.healthStatus.toUpperCase() : undefined;
+    const categoryFilter =
+      typeof args.categoria === "string" && args.categoria.trim()
+        ? normalizedSecretariaKey(args.categoria)
+        : undefined;
+    const tagFilter =
+      typeof args.etiqueta === "string" && args.etiqueta.trim()
+        ? normalizedSecretariaKey(args.etiqueta)
+        : undefined;
 
-    const servers = await prisma.server.findMany({
-      where: {
-        ...(environment ? { environment: environment as never } : {}),
-        ...(healthStatus ? { healthStatus: healthStatus as never } : {}),
-      },
-      select: {
-        name: true,
-        ipAddress: true,
-        environment: true,
-        healthStatus: true,
-        lifecycleState: true,
-        osType: true,
-        osVersion: true,
-        lastSeenAt: true,
-        dataFreshness: { select: { freshnessState: true } },
-        services: { select: { name: true, status: true } },
-        _count: { select: { incidents: true } },
-      },
-      orderBy: { name: "asc" },
-    });
+    const [servers, units] = await Promise.all([
+      prisma.server.findMany({
+        where: {
+          ...(environment ? { environment: environment as never } : {}),
+          ...(healthStatus ? { healthStatus: healthStatus as never } : {}),
+        },
+        select: {
+          name: true,
+          ipAddress: true,
+          environment: true,
+          healthStatus: true,
+          lifecycleState: true,
+          osType: true,
+          osVersion: true,
+          lastSeenAt: true,
+          dataFreshness: { select: { freshnessState: true } },
+          services: { select: { name: true, status: true, port: true, endpoint: true, description: true, lastResult: true } },
+          tags: { select: { tag: { select: { key: true, value: true } } } },
+          _count: { select: { incidents: true } },
+        },
+        orderBy: { name: "asc" },
+      }),
+      OrgTaxonomyService.listUnits(),
+    ]);
 
-    if (!servers.length) return { total: 0, mensaje: "No hay servidores que coincidan con el filtro." };
+    const unitIndex = buildOrgUnitIndex(units);
 
-    return {
-      total: servers.length,
-      servidores: servers.map((server) => ({
+    const classified = servers.map((server) => {
+      const rawUnit =
+        server.tags.find(
+          (entry) =>
+            entry.tag.key.trim().toLowerCase().replace(/í/g, "i") === "secretaria" &&
+            entry.tag.value.trim().length > 0
+        )?.tag.value.trim() ?? null;
+      const unit = rawUnit ? (unitIndex.get(normalizedSecretariaKey(rawUnit)) ?? null) : null;
+
+      return {
         nombre: server.name,
         ip: server.ipAddress,
         ambiente: server.environment,
         salud: server.healthStatus,
         ciclo: server.lifecycleState,
         so: server.osType,
+        unidad: unit?.name ?? rawUnit,
+        categoria: unit?.category?.name ?? null,
+        categoria_slug: unit?.category?.slug ?? null,
+        etiquetas: unit?.tags ?? [],
         frescura: server.dataFreshness?.freshnessState ?? null,
         ultima_conexion: server.lastSeenAt?.toISOString() ?? null,
-        servicios: server.services.map((service) => `${service.name}=${service.status}`),
+        servicios: server.services.map((service) => ({
+          nombre: service.name,
+          estado: service.status,
+          puerto: service.port ?? null,
+          endpoint: service.endpoint ?? null,
+          descripcion: service.description ?? null,
+          ultima_verificacion: service.lastResult ?? null,
+        })),
         incidentes_abiertos_count: server._count.incidents,
+        _categoria_key: unit?.category?.slug ?? null,
+      };
+    });
+
+    const filtered = classified.filter((server) => {
+      if (categoryFilter) {
+        const nameKey = server.categoria ? normalizedSecretariaKey(server.categoria) : "";
+        const slugKey = (server._categoria_key ?? "").toLowerCase();
+        const matchesCategory =
+          nameKey === categoryFilter ||
+          slugKey === categoryFilter.toLowerCase() ||
+          nameKey.includes(categoryFilter) ||
+          categoryFilter.includes(nameKey) ||
+          slugKey.includes(categoryFilter.toLowerCase()) ||
+          categoryFilter.toLowerCase().includes(slugKey);
+        if (!matchesCategory) return false;
+      }
+      if (tagFilter) {
+        const tags = server.etiquetas.map((tag) => normalizedSecretariaKey(tag));
+        if (!tags.includes(tagFilter)) return false;
+      }
+      return true;
+    });
+
+    if (!filtered.length) {
+      return {
+        total: 0,
+        mensaje:
+          categoryFilter || tagFilter
+            ? "No hay servidores que coincidan con esa categoría o etiqueta. Usa consultar_organizacion para ver las categorías y etiquetas disponibles."
+            : "No hay servidores que coincidan con el filtro.",
+      };
+    }
+
+    return {
+      total: filtered.length,
+      servidores: filtered.map(({ _categoria_key: _ignored, ...server }) => server),
+    };
+  }
+
+  /** Estructura de categorías + unidades + etiquetas, con conteos de servidores. */
+  private static async consultarOrganizacion(args: Record<string, unknown>): Promise<unknown> {
+    const categoryFilter =
+      typeof args.categoria === "string" && args.categoria.trim()
+        ? normalizedSecretariaKey(args.categoria)
+        : undefined;
+    const tagFilter =
+      typeof args.etiqueta === "string" && args.etiqueta.trim()
+        ? normalizedSecretariaKey(args.etiqueta)
+        : undefined;
+
+    const [groups, categories, tagVocabulary] = await Promise.all([
+      ServerQueryService.listSecretariaGroups(),
+      OrgTaxonomyService.listCategories(),
+      OrgTaxonomyService.listTagVocabulary(),
+    ]);
+
+    const buckets = new Map<
+      string,
+      {
+        nombre: string;
+        slug: string | null;
+        descripcion: string | null;
+        unidades: Array<{
+          unidad: string;
+          categoria: string | null;
+          etiquetas: string[];
+          servidores: { total: number; operativos: number; advertencias: number; sin_conexion: number };
+        }>;
+      }
+    >();
+
+    for (const category of categories) {
+      buckets.set(category.id, {
+        nombre: category.name,
+        slug: category.slug,
+        descripcion: category.description,
+        unidades: [],
+      });
+    }
+
+    for (const group of groups) {
+      if (group.unitId === null && group.id === "_sin_secretaria") continue;
+      const bucketKey = group.category?.id ?? "sin-categoria";
+      let bucket = buckets.get(bucketKey);
+      if (!bucket) {
+        bucket = {
+          nombre: "Sin categoría",
+          slug: null,
+          descripcion: "Unidades detectadas por etiqueta que aún no están en el catálogo.",
+          unidades: [],
+        };
+        buckets.set(bucketKey, bucket);
+      }
+      bucket.unidades.push({
+        unidad: group.name,
+        categoria: group.category?.name ?? null,
+        etiquetas: group.tags,
+        servidores: {
+          total: group.total,
+          operativos: group.ok,
+          advertencias: group.warn,
+          sin_conexion: group.down,
+        },
+      });
+    }
+
+    const result = Array.from(buckets.values())
+      .filter((bucket) => {
+        if (!categoryFilter) return true;
+        return (
+          normalizedSecretariaKey(bucket.nombre) === categoryFilter ||
+          (bucket.slug ?? "") === categoryFilter.toLowerCase()
+        );
+      })
+      .map((bucket) => ({
+        ...bucket,
+        unidades: bucket.unidades.filter((unit) => {
+          if (!tagFilter) return true;
+          return unit.etiquetas.some((tag) => normalizedSecretariaKey(tag) === tagFilter);
+        }),
+      }))
+      .filter((bucket) => bucket.unidades.length > 0 || !categoryFilter);
+
+    if (!result.length) {
+      return {
+        total_categorias: 0,
+        mensaje: "No hay categorías ni etiquetas que coincidan con el filtro.",
+      };
+    }
+
+    return {
+      total_categorias: result.length,
+      categorias: result.map((bucket) => ({
+        ...bucket,
+        total_unidades: bucket.unidades.length,
+        total_servidores: bucket.unidades.reduce((sum, unit) => sum + unit.servidores.total, 0),
       })),
+      etiquetas: tagVocabulary,
+    };
+  }
+
+  /** Reporte agregado de servidores por categoría de entidad (para reportes por Despacho/Secretarías). */
+  private static async reportePorCategoria(args: Record<string, unknown>): Promise<unknown> {
+    const categoryFilter =
+      typeof args.categoria === "string" && args.categoria.trim()
+        ? normalizedSecretariaKey(args.categoria)
+        : undefined;
+
+    const [groups, categories] = await Promise.all([
+      ServerQueryService.listSecretariaGroups(),
+      OrgTaxonomyService.listCategories(),
+    ]);
+
+    // Construir mapa de categoría id -> datos de categoría
+    const categoryById = new Map<string, { nombre: string; slug: string | null; color: string }>();
+    for (const category of categories) {
+      categoryById.set(category.id, {
+        nombre: category.name,
+        slug: category.slug,
+        color: category.color,
+      });
+    }
+
+    // Agrupar grupos por categoría
+    const buckets = new Map<
+      string,
+      {
+        categoria_id: string | null;
+        nombre_categoria: string;
+        slug_categoria: string | null;
+        unidades: Array<{
+          unidad: string;
+          etiquetas: string[];
+          servidores: { total: number; operativos: number; advertencias: number; sin_conexion: number };
+        }>;
+        totales: { total: number; operativos: number; advertencias: number; sin_conexion: number };
+      }
+    >();
+
+    for (const group of groups) {
+      if (group.unitId === null && group.id === "_sin_secretaria") continue;
+      const catId = group.category?.id ?? null;
+      if (categoryFilter && catId) {
+        const cat = categoryById.get(catId);
+        const catNameKey = cat ? normalizedSecretariaKey(cat.nombre) : "";
+        const catSlug = (cat?.slug ?? "").toLowerCase();
+        const matchesCat =
+          catNameKey === categoryFilter ||
+          catSlug === categoryFilter.toLowerCase() ||
+          catNameKey.includes(categoryFilter) ||
+          categoryFilter.includes(catNameKey) ||
+          catSlug.includes(categoryFilter.toLowerCase()) ||
+          categoryFilter.toLowerCase().includes(catSlug);
+        if (!matchesCat) {
+          continue;
+        }
+      }
+      if (categoryFilter && !catId) continue;
+
+      let bucket = buckets.get(catId ?? "sin-categoria");
+      if (!bucket) {
+        const cat = catId ? categoryById.get(catId) : null;
+        bucket = {
+          categoria_id: catId,
+          nombre_categoria: cat?.nombre ?? "Sin categoría",
+          slug_categoria: cat?.slug ?? null,
+          unidades: [],
+          totales: { total: 0, operativos: 0, advertencias: 0, sin_conexion: 0 },
+        };
+        buckets.set(catId ?? "sin-categoria", bucket);
+      }
+
+      bucket.unidades.push({
+        unidad: group.name,
+        etiquetas: group.tags,
+        servidores: {
+          total: group.total,
+          operativos: group.ok,
+          advertencias: group.warn,
+          sin_conexion: group.down,
+        },
+      });
+      bucket.totales.total += group.total;
+      bucket.totales.operativos += group.ok;
+      bucket.totales.advertencias += group.warn;
+      bucket.totales.sin_conexion += group.down;
+    }
+
+    const result = Array.from(buckets.values()).map((bucket) => ({
+      categoria: bucket.nombre_categoria,
+      categoria_slug: bucket.slug_categoria,
+      total_servidores: bucket.totales.total,
+      operativos: bucket.totales.operativos,
+      advertencias: bucket.totales.advertencias,
+      sin_conexion: bucket.totales.sin_conexion,
+      unidades: bucket.unidades.map((u) => ({
+        nombre: u.unidad,
+        etiquetas: u.etiquetas,
+        total: u.servidores.total,
+        operativos: u.servidores.operativos,
+        advertencias: u.servidores.advertencias,
+        sin_conexion: u.servidores.sin_conexion,
+      })),
+    }));
+
+    if (!result.length) {
+      return {
+        total: 0,
+        mensaje: categoryFilter
+          ? `No hay servidores ni unidades en la categoría "${categoryFilter}". Usa consultar_organizacion para ver las categorías disponibles.`
+          : "No hay servidores agrupados por categoría.",
+      };
+    }
+
+    const granTotal = result.reduce((sum, r) => sum + r.total_servidores, 0);
+    const granOperativos = result.reduce((sum, r) => sum + r.operativos, 0);
+    const granAdvertencias = result.reduce((sum, r) => sum + r.advertencias, 0);
+    const granSinConexion = result.reduce((sum, r) => sum + r.sin_conexion, 0);
+
+    return {
+      total_categorias: result.length,
+      gran_total: granTotal,
+      gran_operativos: granOperativos,
+      gran_advertencias: granAdvertencias,
+      gran_sin_conexion: granSinConexion,
+      categorias: result,
     };
   }
 
@@ -219,41 +567,62 @@ export class AgentToolsService {
     const nombre = typeof args.nombre === "string" ? args.nombre.trim() : "";
     if (!nombre) return { error: "El parámetro 'nombre' es requerido." };
 
-    const server = await prisma.server.findFirst({
-      where: { OR: [{ name: { equals: nombre } }, { name: { contains: nombre } }] },
-      select: {
-        name: true,
-        ipAddress: true,
-        hostname: true,
-        environment: true,
-        healthStatus: true,
-        lifecycleState: true,
-        osType: true,
-        osVersion: true,
-        connectionPort: true,
-        technicalOwner: true,
-        description: true,
-        lastSeenAt: true,
-        lastCheckedAt: true,
-        dataFreshness: { select: { freshnessState: true, lastTelemetryAt: true } },
-        services: { select: { name: true, status: true, port: true, lastResult: true } },
-        checks: {
-          orderBy: { eventTimestamp: "desc" },
-          take: 5,
-          select: { eventTimestamp: true, resultStatus: true, durationMs: true, diagnosticSummary: true },
+    const [server, units] = await Promise.all([
+      prisma.server.findFirst({
+        where: { OR: [{ name: { equals: nombre } }, { name: { contains: nombre } }] },
+        select: {
+          name: true,
+          ipAddress: true,
+          hostname: true,
+          environment: true,
+          healthStatus: true,
+          lifecycleState: true,
+          osType: true,
+          osVersion: true,
+          connectionPort: true,
+          technicalOwner: true,
+          description: true,
+          lastSeenAt: true,
+          lastCheckedAt: true,
+          dataFreshness: { select: { freshnessState: true, lastTelemetryAt: true } },
+          services: { select: { name: true, status: true, port: true, lastResult: true } },
+          tags: { select: { tag: { select: { key: true, value: true } } } },
+          checks: {
+            orderBy: { eventTimestamp: "desc" },
+            take: 5,
+            select: { eventTimestamp: true, resultStatus: true, durationMs: true, diagnosticSummary: true },
+          },
+          incidents: {
+            where: { status: { in: ["OPEN", "ASSIGNED", "IN_PROGRESS"] as never } },
+            select: { title: true, priority: true, status: true },
+          },
         },
-        incidents: {
-          where: { status: { in: ["OPEN", "ASSIGNED", "IN_PROGRESS"] as never } },
-          select: { title: true, priority: true, status: true },
-        },
-      },
-      orderBy: { name: "asc" },
-    });
+        orderBy: { name: "asc" },
+      }),
+      OrgTaxonomyService.listUnits(),
+    ]);
 
     if (!server) return { error: `No existe un servidor cuyo nombre contenga "${nombre}".` };
 
+    const unitIndex = buildOrgUnitIndex(units);
+    const rawUnit =
+      server.tags.find(
+        (entry) =>
+          entry.tag.key.trim().toLowerCase().replace(/í/g, "i") === "secretaria" &&
+          entry.tag.value.trim().length > 0
+      )?.tag.value.trim() ?? null;
+    const unit = rawUnit ? (unitIndex.get(normalizedSecretariaKey(rawUnit)) ?? null) : null;
+
     return {
       ...server,
+      unidad: unit?.name ?? rawUnit,
+      categoria: unit?.category
+        ? {
+            nombre: unit.category.name,
+            slug: unit.category.slug,
+          }
+        : null,
+      etiquetas: unit?.tags ?? [],
       ultima_conexion: server.lastSeenAt?.toISOString() ?? null,
       ultimo_chequeo: server.lastCheckedAt?.toISOString() ?? null,
       incidentes_abiertos: server.incidents,

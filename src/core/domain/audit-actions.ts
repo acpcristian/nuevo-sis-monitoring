@@ -63,6 +63,14 @@ export const AUDIT_ACTIONS = [
   "API_KEY_CREATED",
   "API_KEY_REVOKED",
   "MCP_TOOL_CALL",
+
+  // Estructura organizacional (categorías + etiquetas)
+  "ORG_CATEGORY_CREATED",
+  "ORG_CATEGORY_UPDATED",
+  "ORG_CATEGORY_DELETED",
+  "ORG_UNIT_CREATED",
+  "ORG_UNIT_UPDATED",
+  "ORG_UNIT_DELETED",
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
@@ -162,6 +170,17 @@ export const AUDIT_ACTION_GROUPS: AuditActionGroup[] = [
       { value: "API_KEY_CREATED", label: "Clave de servicio creada" },
       { value: "API_KEY_REVOKED", label: "Clave de servicio revocada" },
       { value: "MCP_TOOL_CALL", label: "Tool MCP invocada por agente externo" },
+    ],
+  },
+  {
+    label: "Estructura organizacional",
+    actions: [
+      { value: "ORG_CATEGORY_CREATED", label: "Categoría organizacional creada" },
+      { value: "ORG_CATEGORY_UPDATED", label: "Categoría organizacional actualizada" },
+      { value: "ORG_CATEGORY_DELETED", label: "Categoría organizacional eliminada" },
+      { value: "ORG_UNIT_CREATED", label: "Unidad organizacional creada" },
+      { value: "ORG_UNIT_UPDATED", label: "Etiquetas o categoría de unidad actualizadas" },
+      { value: "ORG_UNIT_DELETED", label: "Unidad organizacional eliminada" },
     ],
   },
 ];

@@ -57,6 +57,7 @@ describe("Servidor MCP (JSON-RPC 2.0 estadoless)", () => {
     const names = tools.map((t) => t.name);
     for (const expected of [
       "consultar_inventario",
+      "consultar_organizacion",
       "detalle_servidor",
       "consultar_logs",
       "consultar_alertas",

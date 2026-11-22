@@ -735,3 +735,44 @@ model ServiceApiKey {
 
   @@map("service_api_keys")
 }
+
+// =============================================================================
+// 016 — Taxonomía organizacional: categorías + etiquetas por unidad
+// =============================================================================
+
+/// Categoría de entidad (Secretarías Municipales, Subalcaldías, Empresas
+/// Públicas, Direcciones…). Editable desde la UI de servidores.
+model OrgCategory {
+  id          String    @id @default(uuid())
+  /// Clave estable que usa el agente para referirse a la categoría.
+  slug        String    @unique
+  name        String    @unique
+  description String?
+  color       String    @default("#6366f1")
+  sortOrder   Int       @default(0) @map("sort_order")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  units       OrgUnit[]
+
+  @@map("org_categories")
+}
+
+/// Unidad organizacional (contenedor de servidores). Su nombre coincide con el
+/// valor de la etiqueta `secretaria` de los servidores; las etiquetas libres
+/// describen el área o sector y permiten ordenar/filtrar y distinguir al agente.
+model OrgUnit {
+  id         String      @id @default(uuid())
+  name       String      @unique
+  categoryId String?     @map("category_id")
+  tags       String[]    @default([])
+  sortOrder  Int         @default(0) @map("sort_order")
+  active     Boolean     @default(true)
+  createdAt  DateTime    @default(now()) @map("created_at")
+  updatedAt  DateTime    @updatedAt @map("updated_at")
+
+  category   OrgCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+
+  @@index([categoryId, sortOrder])
+  @@map("org_units")
+}

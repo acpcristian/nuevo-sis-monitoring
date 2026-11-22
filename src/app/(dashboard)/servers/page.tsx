@@ -19,6 +19,11 @@ import {
 } from "lucide-react";
 import { ServerStatusBadge } from "@/components/servers/ServerStatusBadge";
 import { ServerForm } from "@/components/servers/ServerForm";
+import SecretariaBoard, {
+  type OrgCategory,
+  type SecretariaGroup,
+} from "@/components/servers/SecretariaBoard";
+import OrgTaxonomyModal from "@/components/servers/OrgTaxonomyModal";
 import { useServerMonitor } from "@/components/servers/useServerMonitor";
 import { onCatalogChange } from "@/lib/catalog-events";
 import type { ServerListItem } from "@/components/servers/server-list-item";
@@ -27,21 +32,8 @@ import type { ServerListItem } from "@/components/servers/server-list-item";
  * Inventario institucional de servidores organizado por Secretarías
  * municipales. Las secretarías se derivan de la etiqueta `secretaria` del
  * catálogo (sin cambios de esquema); la vista general muestra los
- * contenedores y la vista interna la tabla de servidores de cada uno.
+ * contenedores agrupados por categoría de entidad y filtrables por etiqueta.
  */
-
-/** Grupo de secretaría tal como lo entrega GET /api/v1/secretarias. */
-interface SecretariaGroup {
-  id: string; // valor del tag `secretaria` o "_sin_secretaria"
-  name: string;
-  /** Valores de etiqueta que pertenecen al grupo (oficial + históricos). */
-  names?: string[];
-  total: number;
-  ok: number;
-  warn: number;
-  down: number;
-  serverIds: string[];
-}
 
 type StatusFilter = "ALL" | "OK" | "WARN" | "DOWN";
 
@@ -151,9 +143,13 @@ const OS_LABEL: Record<string, string> = {
 export default function ServersPage() {
   const [servers, setServers] = useState<ServerListItem[]>([]);
   const [secretariaGroups, setSecretariaGroups] = useState<SecretariaGroup[] | null>(null);
+  const [orgCategories, setOrgCategories] = useState<OrgCategory[]>([]);
+  const [tagVocabulary, setTagVocabulary] = useState<string[]>([]);
   const [secretariaError, setSecretariaError] = useState<string | null>(null);
   const [filters, setFilters] = useState<FiltersState>(INITIAL_FILTERS);
   const [selectedSecretaria, setSelectedSecretaria] = useState<string | null>(null);
+  const [taxonomyOpen, setTaxonomyOpen] = useState(false);
+  const [canManage, setCanManage] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -188,6 +184,8 @@ export default function ServersPage() {
       }
       const data = await response.json();
       setSecretariaGroups(Array.isArray(data.items) ? data.items : []);
+      setOrgCategories(Array.isArray(data.categories) ? data.categories : []);
+      setTagVocabulary(Array.isArray(data.tags) ? data.tags : []);
       setSecretariaError(null);
     } catch (caught: unknown) {
       setSecretariaError(caught instanceof Error ? caught.message : String(caught));
@@ -197,6 +195,11 @@ export default function ServersPage() {
   useEffect(() => {
     void fetchServers(true);
     void fetchSecretarias();
+    // Rol actual: solo SUPERADMIN puede administrar categorías y etiquetas.
+    void fetch("/api/v1/auth/me", { cache: "no-store" })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((data: { role?: string } | null) => setCanManage(data?.role === "SUPERADMIN"))
+      .catch(() => setCanManage(false));
     // Refresco automático cuando otra vista (alta, retire, ciclo de vida)
     // notifica un cambio en el catálogo.
     const unsubscribe = onCatalogChange(() => {
@@ -405,6 +408,11 @@ export default function ServersPage() {
     [secretariaGroups, selectedSecretaria]
   );
 
+  const selectedSecretariaGroup = useMemo(
+    () => secretariaGroups?.find((group) => group.id === selectedSecretaria) ?? null,
+    [secretariaGroups, selectedSecretaria]
+  );
+
   return (
     <div className="min-h-screen">
       <div className="mx-auto max-w-[110rem] space-y-6 px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
@@ -610,7 +618,20 @@ export default function ServersPage() {
                   <p className="text-xs text-[var(--text-3)]">
                     {scopeServers.length} equipo{scopeServers.length === 1 ? "" : "s"} asignado
                     {scopeServers.length === 1 ? "" : "s"}
+                    {selectedSecretariaGroup?.category ? ` · ${selectedSecretariaGroup.category.name}` : ""}
                   </p>
+                  {selectedSecretariaGroup?.tags.length ? (
+                    <div className="mt-1.5 flex flex-wrap gap-1.5">
+                      {selectedSecretariaGroup.tags.map((tag) => (
+                        <span
+                          key={tag}
+                          className="rounded-md border border-[var(--border-1)] bg-[var(--surface-2)] px-1.5 py-0.5 text-[10px] font-medium text-[var(--text-2)]"
+                        >
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
+                  ) : null}
                 </div>
               </div>
             </div>
@@ -697,13 +718,20 @@ export default function ServersPage() {
             </div>
           </div>
         ) : (
-          /* ===== Vista general: contenedores de secretarías ===== */
+          /* ===== Vista general: contenedores agrupados por categoría ===== */
           <section aria-labelledby="secretarias-heading">
-            <div className="mb-4">
-              <h2 id="secretarias-heading" className="text-base font-semibold text-[var(--text-1)]">
-                Secretarías municipales
-              </h2>
-              <p className="text-sm text-[var(--text-3)]">Selecciona un contenedor para ingresar</p>
+            <div className="mb-4 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+              <div>
+                <h2 id="secretarias-heading" className="text-base font-semibold text-[var(--text-1)]">
+                  Secretarías municipales
+                </h2>
+                <p className="text-sm text-[var(--text-3)]">
+                  Explora por categoría y etiqueta; selecciona una unidad para ingresar
+                </p>
+              </div>
+              <p className="text-xs text-[var(--text-3)]">
+                {orgCategories.length} categorías · {tagVocabulary.length} etiquetas
+              </p>
             </div>
 
             {!secretariaGroups && !secretariaError ? (
@@ -738,59 +766,30 @@ export default function ServersPage() {
                 </p>
               </div>
             ) : (
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-                {visibleGroups.map((group) => {
-                  const alerts = group.warn + group.down;
-                  return (
-                    <button
-                      key={group.id}
-                      type="button"
-                      onClick={() => handleOpenSecretaria(group.id)}
-                      className="group flex flex-col justify-between rounded-xl border border-[var(--border-2)] bg-white p-5 text-left shadow-soft transition-all duration-200 hover:-translate-y-0.5 hover:border-[var(--primary-500)] hover:shadow-large focus-visible:-translate-y-0.5"
-                    >
-                      <div className="flex items-start justify-between gap-3">
-                        <span
-                          aria-hidden="true"
-                          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-[var(--primary-50)] transition-colors duration-200 group-hover:bg-[var(--primary-100)]"
-                        >
-                          <Building2 className="h-5 w-5 text-[var(--primary-600)]" />
-                        </span>
-                        <span className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--primary-50)] px-2 py-1 text-xs font-semibold text-[var(--primary-600)] opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-focus-visible:opacity-100">
-                          Ingresar
-                          <ArrowRight className="h-3.5 w-3.5" />
-                        </span>
-                      </div>
-
-                      <p className="mt-4 text-[10px] font-bold uppercase tracking-wider text-[var(--text-4)]">
-                        Secretaría municipal
-                      </p>
-                      <h3 className="mt-0.5 truncate text-[15px] font-semibold text-[var(--text-1)]">
-                        {group.name}
-                      </h3>
-
-                      <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 border-t border-[var(--border-1)] pt-3 text-xs text-[var(--text-3)]">
-                        <span className="tabular-nums">
-                          <strong className="font-semibold text-[var(--text-1)]">{group.total}</strong>{" "}
-                          servidores
-                        </span>
-                        <span className="tabular-nums">
-                          <strong className="font-semibold text-[#1e7c50]">{group.ok}</strong> operativos
-                        </span>
-                        {alerts > 0 && (
-                          <span className="tabular-nums">
-                            <strong className="font-semibold text-[#b4432d]">{alerts}</strong>{" "}
-                            alerta{alerts === 1 ? "" : "s"}
-                          </span>
-                        )}
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
+              <SecretariaBoard
+                groups={visibleGroups}
+                categories={orgCategories}
+                tagVocabulary={tagVocabulary}
+                onOpen={handleOpenSecretaria}
+                onManage={() => setTaxonomyOpen(true)}
+                canManage={canManage}
+              />
             )}
           </section>
         )}
       </div>
+
+      {/* Modal: categorías y etiquetas organizacionales */}
+      <OrgTaxonomyModal
+        open={taxonomyOpen}
+        categories={orgCategories}
+        tagVocabulary={tagVocabulary}
+        onClose={() => setTaxonomyOpen(false)}
+        onChanged={() => {
+          void fetchSecretarias();
+          setToast("Estructura organizacional actualizada");
+        }}
+      />
 
       {/* Modal: registrar servidor */}
       {modalOpen && (

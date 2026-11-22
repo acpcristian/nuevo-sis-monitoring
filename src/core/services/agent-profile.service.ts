@@ -1,6 +1,11 @@
 import { prisma } from "@/infrastructure/db/prisma";
 import { AgentToolsService } from "@/core/services/agent-tools.service";
 import { AgentKbService } from "@/core/services/agent-kb.service";
+import { OrgTaxonomyService } from "@/core/services/org-taxonomy.service";
+import {
+  buildOrgUnitIndex,
+  normalizedSecretariaKey,
+} from "@/core/domain/org-taxonomy";
 import type { AgentProfileUpdateInput } from "@/shared/validations/agent.schema";
 
 /**
@@ -60,17 +65,23 @@ export class AgentProfileService {
     const now = new Date();
 
     // Ventana de inventario opcional ({{inventario}}): resumen compacto del estado.
-    const servers = await prisma.server.findMany({
-      select: {
-        name: true,
-        ipAddress: true,
-        environment: true,
-        healthStatus: true,
-        lifecycleState: true,
-        services: { select: { name: true, status: true } },
-      },
-      orderBy: { name: "asc" },
-    });
+    const [servers, units] = await Promise.all([
+      prisma.server.findMany({
+        select: {
+          name: true,
+          ipAddress: true,
+          environment: true,
+          healthStatus: true,
+          lifecycleState: true,
+          services: { select: { name: true, status: true } },
+          tags: { select: { tag: { select: { key: true, value: true } } } },
+        },
+        orderBy: { name: "asc" },
+      }),
+      OrgTaxonomyService.listUnits(),
+    ]);
+
+    const unitIndex = buildOrgUnitIndex(units);
 
     const inventorySummary = servers.length
       ? servers
@@ -78,10 +89,35 @@ export class AgentProfileService {
             const services = server.services.length
               ? ` servicios: ${server.services.map((service) => `${service.name}=${service.status}`).join(", ")}`
               : "";
-            return `- ${server.name} (${server.ipAddress}, ${server.environment}, salud=${server.healthStatus}, ciclo=${server.lifecycleState})${services}`;
+            const rawUnit =
+              server.tags.find(
+                (entry) =>
+                  entry.tag.key.trim().toLowerCase().replace(/í/g, "i") === "secretaria" &&
+                  entry.tag.value.trim().length > 0
+              )?.tag.value.trim() ?? null;
+            const unit = rawUnit ? (unitIndex.get(normalizedSecretariaKey(rawUnit)) ?? null) : null;
+            const classification = unit
+              ? ` | unidad=${unit.name} | categoría=${unit.category?.name ?? "sin categoría"} | etiquetas=${
+                  unit.tags.length ? unit.tags.join(", ") : "sin etiquetas"
+                }`
+              : rawUnit
+                ? ` | unidad=${rawUnit} | categoría=sin categoría | etiquetas=sin etiquetas`
+                : "";
+            return `- ${server.name} (${server.ipAddress}, ${server.environment}, salud=${server.healthStatus}, ciclo=${server.lifecycleState})${classification}${services}`;
           })
           .join("\n")
       : "El inventario de servidores está vacío: aún no se han registrado servidores.";
+
+    const taxonomySummary = units.length
+      ? units
+          .map((unit) => {
+            const category = unit.category?.name ?? "Sin categoría";
+            return `- [${category}] ${unit.name} — etiquetas: ${
+              unit.tags.length ? unit.tags.join(", ") : "sin etiquetas"
+            }`;
+          })
+          .join("\n")
+      : "La estructura organizacional aún no tiene unidades ni etiquetas configuradas.";
 
     const blocks: string[] = [];
 
@@ -121,6 +157,10 @@ export class AgentProfileService {
     }
 
     blocks.push(`# ESTADO DEL INVENTARIO ({{inventario}})\n${inventorySummary}`.replace("{{inventario}}", "contexto del agente"));
+
+    blocks.push(
+      `# ESTRUCTURA ORGANIZACIONAL (categorías y etiquetas)\nCada servidor pertenece a una unidad organizacional (etiqueta \`secretaria\`), y cada unidad tiene una categoría de entidad y etiquetas libres. Las categorías principales son: DESPACHO MUNICIPAL (Despacho del Alcalde y gabinete) y SECRETARÍAS MUNICIPALES (además de Subalcaldías, Empresas Públicas y Direcciones y Unidades). Distingue siempre entre CATEGORÍA (tipo de entidad, p. ej. Despacho Municipal, Secretarías Municipales) y ETIQUETA (área/sector, p. ej. Alcaldía, Gabinete, Finanzas, Salud):\n${taxonomySummary}\n\nFILTRADO Y REVISIÓN DE SERVICIOS POR CATEGORÍA:\n- Si te piden revisar los servidores o los servicios de "Despacho" o "Despacho Municipal", llama a \`consultar_inventario(categoria="despacho")\`. Esta herramienta te devuelve cada servidor individual con su lista completa de servicios y el estado de cada servicio (RUNNING, STOPPED, etc.).\n- Si te piden revisar los servidores o servicios de "Secretarías" o "Secretarías Municipales", llama a \`consultar_inventario(categoria="secretarias")\`.\n- Para un reporte numérico resumido por categoría usa \`reporte_por_categoria(categoria)\`.\n- Después de consultar, detalla con precisión el estado de cada servidor y cada uno de sus servicios.`
+    );
 
     if (profile.toolsEnabled) {
       const toolLines = AgentToolsService.getToolSummaries()

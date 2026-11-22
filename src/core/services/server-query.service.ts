@@ -2,6 +2,26 @@ import { prisma } from "@/infrastructure/db/prisma";
 import { NotFoundError } from "@/shared/errors/domain-errors";
 import { OsType, Environment, HealthStatus, LifecycleState } from "@prisma/client";
 import { deriveGlobalStatus } from "@/core/domain/server.types";
+import {
+  OrgTaxonomyService,
+  type OrgUnitCategoryDto,
+} from "@/core/services/org-taxonomy.service";
+import {
+  SECRETARIA_CATALOG,
+  SECRETARIA_TAG_KEY,
+  UNTAGGED_SECRETARIA_ID,
+  UNTAGGED_SECRETARIA_NAME,
+  buildOrgUnitIndex,
+  normalizedSecretariaKey,
+  normalizedTagKey,
+} from "@/core/domain/org-taxonomy";
+
+export {
+  SECRETARIA_CATALOG,
+  SECRETARIA_TAG_KEY,
+  UNTAGGED_SECRETARIA_ID,
+  UNTAGGED_SECRETARIA_NAME,
+};
 
 export interface ListServersParams {
   environment?: Environment;
@@ -20,12 +40,21 @@ export interface ListServersParams {
  * etiqueta `secretaria` (la relación se mantiene por identificador del tag,
  * sin esquema nuevo). Los servidores sin esa etiqueta forman el grupo
  * especial `_sin_secretaria`.
+ *
+ * La clasificación (categoría de entidad + etiquetas) viene del catálogo
+ * editable `org_units` / `org_categories`.
  */
 export interface SecretariaGroupItem {
-  id: string; // valor del tag `secretaria` o "_sin_secretaria"
+  id: string; // valor canónico del tag `secretaria` o "_sin_secretaria"
+  unitId: string | null; // id de la unidad en el catálogo (null = sin catálogo)
   name: string;
   /** Valores de etiqueta que pertenecen al grupo (nombre oficial + históricos). */
   names: string[];
+  /** Categoría de entidad (Secretarías Municipales, Subalcaldías…). */
+  category: OrgUnitCategoryDto | null;
+  /** Etiquetas libres de la unidad (Finanzas, Salud, TI…). */
+  tags: string[];
+  sortOrder: number;
   total: number;
   ok: number;
   warn: number;
@@ -33,51 +62,6 @@ export interface SecretariaGroupItem {
   serverIds: string[];
 }
 
-export const SECRETARIA_TAG_KEY = "secretaria";
-export const UNTAGGED_SECRETARIA_ID = "_sin_secretaria";
-export const UNTAGGED_SECRETARIA_NAME = "Sin secretaría asignada";
-
-/**
- * Catálogo oficial de Secretarías municipales de El Alto. Los contenedores se
- * muestran SIEMPRE con este orden institucional, incluso cuando aún no tienen
- * servidores asignados (conteos en 0). Editar esta lista = redeploy.
- */
-export const SECRETARIA_CATALOG: string[] = [
-  "SECRETARÍA MUNICIPAL DE GESTIÓN INSTITUCIONAL",
-  "SECRETARÍA MUNICIPAL DE ADMINISTRACIÓN Y FINANZAS",
-  "SECRETARÍA MUNICIPAL DE MOVILIDAD URBANA",
-  "SECRETARÍA MUNICIPAL DE EDUCACIÓN Y CULTURA",
-  "SECRETARÍA MUNICIPAL DE DESARROLLO HUMANO Y SOCIAL INTEGRAL",
-  "SECRETARÍA MUNICIPAL DE SEGURIDAD CIUDADANA",
-  "SECRETARÍA MUNICIPAL DE SALUD",
-  "SECRETARÍA MUNICIPAL DE INFRAESTRUCTURA PÚBLICA",
-  "SECRETARÍA MUNICIPAL DE AGUA, SANEAMIENTO, GESTIÓN AMBIENTAL Y RIESGOS",
-  "SECRETARÍA MUNICIPAL DE DESARROLLO ECONÓMICO",
-];
-
-/**
- * Etiquetas históricas o libres que se agrupan bajo un nombre del catálogo
- * (datos registrados antes de existir el catálogo oficial).
- */
-const SECRETARIA_ALIASES: Record<string, string> = {
-  "hacienda": "SECRETARÍA MUNICIPAL DE ADMINISTRACIÓN Y FINANZAS",
-  "secretaria de hacienda": "SECRETARÍA MUNICIPAL DE ADMINISTRACIÓN Y FINANZAS",
-};
-
-/** Clave de comparación: mayúsculas, sin acentos, sin símbolos. */
-function normalizedSecretariaKey(value: string): string {
-  return value
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toUpperCase()
-    .replace(/[^A-Z0-9]+/g, " ")
-    .trim();
-}
-
-/** Clave de etiqueta normalizada para tolerar mayúsculas y acentos. */
-function normalizedTagKey(key: string): string {
-  return key.trim().toLowerCase().replace(/í/g, "i");
-}
 
 export class ServerQueryService {
   /**
@@ -203,40 +187,104 @@ export class ServerQueryService {
   }
 
   /**
-   * Contenedores de Secretarías municipales: agrupa el catálogo visible
-   * (servidores no retirados) por la etiqueta `secretaria` y entrega conteos
-   * de estado con las mismas reglas del semáforo (`deriveGlobalStatus`).
-   * Solo lectura; no muta el esquema (la relación vive en el tag).
+   * Contenedores organizacionales: agrupa los servidores visibles (no
+   * retirados) por la etiqueta `secretaria` y los enriquece con la categoría y
+   * las etiquetas del catálogo editable. Las unidades del catálogo siempre
+   * aparecen (aunque tengan 0 servidores); los valores de etiqueta ajenos al
+   * catálogo se muestran como grupos sin categoría.
    */
   public static async listSecretariaGroups(): Promise<SecretariaGroupItem[]> {
-    const servers = await prisma.server.findMany({
-      where: { lifecycleState: { not: "RETIRED" } },
-      select: {
-        id: true,
-        healthStatus: true,
-        lifecycleState: true,
-        services: { select: { status: true } },
-        tags: {
-          include: { tag: { select: { key: true, value: true } } },
+    const [units, servers] = await Promise.all([
+      OrgTaxonomyService.listUnits(),
+      prisma.server.findMany({
+        where: { lifecycleState: { not: "RETIRED" } },
+        select: {
+          id: true,
+          healthStatus: true,
+          lifecycleState: true,
+          services: { select: { status: true } },
+          tags: {
+            include: { tag: { select: { key: true, value: true } } },
+          },
         },
-      },
-      orderBy: { name: "asc" },
-    });
+        orderBy: { name: "asc" },
+      }),
+    ]);
 
+    const unitIndex = buildOrgUnitIndex(units);
     const groups = new Map<string, SecretariaGroupItem>();
 
-    for (const server of servers) {
-      const secretariaTag = server.tags.find(
-        (t) => normalizedTagKey(t.tag.key) === SECRETARIA_TAG_KEY && t.tag.value.trim().length > 0
-      );
-      const groupId = secretariaTag?.tag.value.trim() ?? UNTAGGED_SECRETARIA_ID;
-      const name = secretariaTag?.tag.value.trim() ?? UNTAGGED_SECRETARIA_NAME;
+    // 1. Cada unidad del catálogo es un contenedor visible, incluso en 0.
+    for (const unit of units) {
+      groups.set(`UNIT:${unit.id}`, {
+        id: unit.name,
+        unitId: unit.id,
+        name: unit.name,
+        names: [unit.name],
+        category: unit.category,
+        tags: unit.tags,
+        sortOrder: unit.sortOrder,
+        total: 0,
+        ok: 0,
+        warn: 0,
+        down: 0,
+        serverIds: [],
+      });
+    }
 
-      let group: SecretariaGroupItem | undefined = groups.get(groupId);
-      if (!group) {
-        const created: SecretariaGroupItem = { id: groupId, name, names: [name], total: 0, ok: 0, warn: 0, down: 0, serverIds: [] };
-        groups.set(groupId, created);
-        group = created;
+    // 2. Suma de servidores al grupo que resuelve su etiqueta `secretaria`.
+    for (const server of servers) {
+      const rawValue =
+        server.tags.find(
+          (t) => normalizedTagKey(t.tag.key) === SECRETARIA_TAG_KEY && t.tag.value.trim().length > 0
+        )?.tag.value.trim() ?? null;
+
+      let group: SecretariaGroupItem;
+      if (!rawValue) {
+        const existing = groups.get(UNTAGGED_SECRETARIA_ID);
+        if (existing) {
+          group = existing;
+        } else {
+          group = {
+            id: UNTAGGED_SECRETARIA_ID,
+            unitId: null,
+            name: UNTAGGED_SECRETARIA_NAME,
+            names: [UNTAGGED_SECRETARIA_NAME],
+            category: null,
+            tags: [],
+            sortOrder: Number.MAX_SAFE_INTEGER,
+            total: 0,
+            ok: 0,
+            warn: 0,
+            down: 0,
+            serverIds: [],
+          };
+          groups.set(UNTAGGED_SECRETARIA_ID, group);
+        }
+      } else {
+        const unit = unitIndex.get(normalizedSecretariaKey(rawValue)) ?? null;
+        const key = unit ? `UNIT:${unit.id}` : `EXTRA:${normalizedSecretariaKey(rawValue)}`;
+        const existing = groups.get(key);
+        if (existing) {
+          group = existing;
+          if (!group.names.includes(rawValue)) group.names.push(rawValue);
+        } else {
+          group = {
+            id: rawValue,
+            unitId: null,
+            name: rawValue,
+            names: [rawValue],
+            category: null,
+            tags: [],
+            sortOrder: Number.MAX_SAFE_INTEGER,
+            total: 0,
+            ok: 0,
+            warn: 0,
+            down: 0,
+            serverIds: [],
+          };
+          groups.set(key, group);
+        }
       }
 
       const status = deriveGlobalStatus({
@@ -252,90 +300,17 @@ export class ServerQueryService {
       group.serverIds.push(server.id);
     }
 
-    // Fusión con el catálogo oficial: cada Secretaría del catálogo SIEMPRE
-    // aparece (aunque no tenga servidores, con conteos en 0), los grupos
-    // derivados de etiquetas se agrupan bajo el nombre oficial (directo o por
-    // alias) y los nombres ajenos al catálogo quedan al final, aparte.
-    const catalogKeys = new Map<string, { index: number; name: string }>();
-    SECRETARIA_CATALOG.forEach((name, index) => {
-      catalogKeys.set(normalizedSecretariaKey(name), { index, name });
+    // 3. Orden institucional: categoría → orden de la unidad → nombre; el
+    //    grupo sin secretaría queda siempre al final.
+    return Array.from(groups.values()).sort((a, b) => {
+      if (a.id === UNTAGGED_SECRETARIA_ID) return 1;
+      if (b.id === UNTAGGED_SECRETARIA_ID) return -1;
+      const categoryA = a.category?.sortOrder ?? Number.MAX_SAFE_INTEGER;
+      const categoryB = b.category?.sortOrder ?? Number.MAX_SAFE_INTEGER;
+      if (categoryA !== categoryB) return categoryA - categoryB;
+      if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder;
+      return a.name.localeCompare(b.name, "es");
     });
-
-    interface MergedGroup extends SecretariaGroupItem {
-      catalogIndex: number | null;
-    }
-
-    const merged = new Map<string, MergedGroup>();
-    for (const catalogKey of catalogKeys.keys()) {
-      const entry = catalogKeys.get(catalogKey)!;
-      merged.set(catalogKey, {
-        id: entry.name,
-        name: entry.name,
-        names: [entry.name],
-        total: 0,
-        ok: 0,
-        warn: 0,
-        down: 0,
-        serverIds: [],
-        catalogIndex: entry.index,
-      });
-    }
-
-    for (const group of groups.values()) {
-      if (group.id === UNTAGGED_SECRETARIA_ID) {
-        merged.set(UNTAGGED_SECRETARIA_ID, { ...group, names: [UNTAGGED_SECRETARIA_NAME], catalogIndex: null });
-        continue;
-      }
-
-      const key = normalizedSecretariaKey(group.id);
-      const resolvedCatalogKey = catalogKeys.has(key)
-        ? key
-        : aliasCatalogKey(key) ?? null;
-      const entry = resolvedCatalogKey ? catalogKeys.get(resolvedCatalogKey)! : null;
-
-      const id = entry?.name ?? group.id;
-      const mapKey = entry ? resolvedCatalogKey! : `EXTRA:${key}`;
-      const existing = merged.get(mapKey);
-      if (!existing) {
-        merged.set(mapKey, {
-          ...group,
-          id,
-          name: entry?.name ?? group.name,
-          names: entry ? [entry.name, group.name] : [group.name],
-          catalogIndex: entry?.index ?? null,
-        });
-      } else {
-        existing.total += group.total;
-        existing.ok += group.ok;
-        existing.warn += group.warn;
-        existing.down += group.down;
-        existing.serverIds.push(...group.serverIds);
-        if (!existing.names.includes(group.name)) existing.names.push(group.name);
-      }
-    }
-
-    return Array.from(merged.values())
-      .sort((a, b) => {
-        if (a.id === UNTAGGED_SECRETARIA_ID) return 1;
-        if (b.id === UNTAGGED_SECRETARIA_ID) return -1;
-        if (a.catalogIndex !== null && b.catalogIndex !== null) return a.catalogIndex - b.catalogIndex;
-        if (a.catalogIndex !== null) return -1;
-        if (b.catalogIndex !== null) return 1;
-        return a.name.localeCompare(b.name, "es");
-      })
-      .map(({ catalogIndex: _catalogIndex, ...group }) => group);
   }
-}
-
-/**
- * Alias históricos → clave normalizada del catálogo (o null si no hay match).
- */
-function aliasCatalogKey(aliasKey: string): string | null {
-  for (const [alias, catalogName] of Object.entries(SECRETARIA_ALIASES)) {
-    if (normalizedSecretariaKey(alias) === aliasKey) {
-      return normalizedSecretariaKey(catalogName);
-    }
-  }
-  return null;
 }
 
