@@ -18,6 +18,30 @@ import {
  *    no desbordar la ventana de contexto del modelo.
  */
 
+/**
+ * Compara una categoría (nombre y slug) contra el filtro ya normalizado del
+ * agente. Tolera "despacho" → "Despacho Municipal" y viceversa, pero nunca
+ * hace coincidir un slug vacío con todos los servidores.
+ */
+function matchesCategoryFilter(
+  nombre: string | null | undefined,
+  slug: string | null | undefined,
+  filter: string
+): boolean {
+  const nameKey = nombre ? normalizedSecretariaKey(nombre) : "";
+  const slugKey = (slug ?? "").trim().toLowerCase();
+  const filterKey = filter.toLowerCase();
+
+  const nameMatches =
+    nameKey.length > 0 &&
+    (nameKey === filter || nameKey.includes(filter) || filter.includes(nameKey));
+  const slugMatches =
+    slugKey.length > 0 &&
+    (slugKey === filterKey || slugKey.includes(filterKey) || filterKey.includes(slugKey));
+
+  return nameMatches || slugMatches;
+}
+
 export interface AgentToolDefinition {
   name: string;
   description: string;
@@ -177,12 +201,18 @@ export class AgentToolsService {
     }
 
     let args: Record<string, unknown> = {};
-    if (typeof rawArgs === "string" && rawArgs.trim()) {
-      try {
-        args = JSON.parse(rawArgs) as Record<string, unknown>;
-      } catch {
-        return { error: "Los argumentos no son JSON válido." };
+    if (typeof rawArgs === "string") {
+      if (rawArgs.trim()) {
+        try {
+          args = JSON.parse(rawArgs) as Record<string, unknown>;
+        } catch {
+          return { error: "Los argumentos no son JSON válido." };
+        }
       }
+    } else if (rawArgs && typeof rawArgs === "object") {
+      // El chat del agente y el servidor MCP ya entregan el objeto parseado:
+      // antes se descartaba y los filtros (p. ej. categoria) se ignoraban.
+      args = rawArgs as Record<string, unknown>;
     }
 
     switch (name) {
@@ -261,6 +291,23 @@ export class AgentToolsService {
     ]);
 
     const unitIndex = buildOrgUnitIndex(units);
+    const categoryIndex = new Map<string, NonNullable<(typeof units)[number]["category"]>>();
+    for (const unit of units) {
+      if (!unit.category) continue;
+      if (!categoryIndex.has(normalizedSecretariaKey(unit.category.name))) {
+        categoryIndex.set(normalizedSecretariaKey(unit.category.name), unit.category);
+      }
+      categoryIndex.set(unit.category.slug.toLowerCase(), unit.category);
+    }
+
+    /** Si la etiqueta `secretaria` no coincide con una unidad, intenta resolver la categoría por nombre. */
+    const resolveCategoryFallback = (rawUnit: string) => {
+      const rawKey = normalizedSecretariaKey(rawUnit);
+      for (const [key, category] of categoryIndex) {
+        if (key === rawKey || key.includes(rawKey) || rawKey.includes(key)) return category;
+      }
+      return null;
+    };
 
     const classified = servers.map((server) => {
       const rawUnit =
@@ -270,6 +317,8 @@ export class AgentToolsService {
             entry.tag.value.trim().length > 0
         )?.tag.value.trim() ?? null;
       const unit = rawUnit ? (unitIndex.get(normalizedSecretariaKey(rawUnit)) ?? null) : null;
+      const fallbackCategory = !unit && rawUnit ? resolveCategoryFallback(rawUnit) : null;
+      const category = unit?.category ?? fallbackCategory;
 
       return {
         nombre: server.name,
@@ -279,8 +328,8 @@ export class AgentToolsService {
         ciclo: server.lifecycleState,
         so: server.osType,
         unidad: unit?.name ?? rawUnit,
-        categoria: unit?.category?.name ?? null,
-        categoria_slug: unit?.category?.slug ?? null,
+        categoria: category?.name ?? null,
+        categoria_slug: category?.slug ?? null,
         etiquetas: unit?.tags ?? [],
         frescura: server.dataFreshness?.freshnessState ?? null,
         ultima_conexion: server.lastSeenAt?.toISOString() ?? null,
@@ -293,19 +342,13 @@ export class AgentToolsService {
           ultima_verificacion: service.lastResult ?? null,
         })),
         incidentes_abiertos_count: server._count.incidents,
-        _categoria_key: unit?.category?.slug ?? null,
+        _categoria_key: category?.slug ?? null,
       };
     });
 
     const filtered = classified.filter((server) => {
-      if (categoryFilter) {
-        if (!server.categoria && !server._categoria_key) return false;
-        const nameKey = server.categoria ? normalizedSecretariaKey(server.categoria) : "";
-        const slugKey = (server._categoria_key ?? "").toLowerCase();
-        const matchesCategory =
-          (nameKey && (nameKey === categoryFilter || nameKey.includes(categoryFilter) || categoryFilter.includes(nameKey))) ||
-          (slugKey && (slugKey === categoryFilter.toLowerCase() || slugKey.includes(categoryFilter.toLowerCase()) || categoryFilter.toLowerCase().includes(slugKey)));
-        if (!matchesCategory) return false;
+      if (categoryFilter && !matchesCategoryFilter(server.categoria, server._categoria_key, categoryFilter)) {
+        return false;
       }
       if (tagFilter) {
         const tags = server.etiquetas.map((tag) => normalizedSecretariaKey(tag));
@@ -315,13 +358,23 @@ export class AgentToolsService {
     });
 
     if (!filtered.length) {
-      return {
-        total: 0,
-        mensaje:
-          categoryFilter || tagFilter
-            ? "No hay servidores que coincidan con esa categoría o etiqueta. Usa consultar_organizacion para ver las categorías y etiquetas disponibles."
-            : "No hay servidores que coincidan con el filtro.",
-      };
+      if (categoryFilter || tagFilter) {
+        const [categories, tagVocabulary] = await Promise.all([
+          OrgTaxonomyService.listCategories(),
+          OrgTaxonomyService.listTagVocabulary(),
+        ]);
+        const availableCategories = categories.map((category) => `${category.name} (${category.slug})`);
+        return {
+          total: 0,
+          filtro: { categoria: args.categoria ?? null, etiqueta: args.etiqueta ?? null },
+          mensaje:
+            "No hay servidores que coincidan con ese filtro. La categoría o etiqueta puede existir pero no tener servidores asignados; no afirmes que la categoría no existe. " +
+            `Categorías disponibles: ${availableCategories.join(", ") || "ninguna"}.`,
+          categorias_disponibles: availableCategories,
+          etiquetas_disponibles: tagVocabulary,
+        };
+      }
+      return { total: 0, mensaje: "No hay servidores que coincidan con el filtro." };
     }
 
     return {
@@ -400,10 +453,7 @@ export class AgentToolsService {
     const result = Array.from(buckets.values())
       .filter((bucket) => {
         if (!categoryFilter) return true;
-        return (
-          normalizedSecretariaKey(bucket.nombre) === categoryFilter ||
-          (bucket.slug ?? "") === categoryFilter.toLowerCase()
-        );
+        return matchesCategoryFilter(bucket.nombre, bucket.slug, categoryFilter);
       })
       .map((bucket) => ({
         ...bucket,
@@ -415,9 +465,13 @@ export class AgentToolsService {
       .filter((bucket) => bucket.unidades.length > 0 || !categoryFilter);
 
     if (!result.length) {
+      const availableCategories = categories.map((category) => `${category.name} (${category.slug})`);
       return {
         total_categorias: 0,
-        mensaje: "No hay categorías ni etiquetas que coincidan con el filtro.",
+        mensaje:
+          "No hay categorías ni etiquetas que coincidan con el filtro. " +
+          `Categorías disponibles: ${availableCategories.join(", ") || "ninguna"}.`,
+        categorias_disponibles: availableCategories,
       };
     }
 
@@ -473,22 +527,10 @@ export class AgentToolsService {
     for (const group of groups) {
       if (group.unitId === null && group.id === "_sin_secretaria") continue;
       const catId = group.category?.id ?? null;
-      if (categoryFilter && catId) {
-        const cat = categoryById.get(catId);
-        const catNameKey = cat ? normalizedSecretariaKey(cat.nombre) : "";
-        const catSlug = (cat?.slug ?? "").toLowerCase();
-        const matchesCat =
-          catNameKey === categoryFilter ||
-          catSlug === categoryFilter.toLowerCase() ||
-          catNameKey.includes(categoryFilter) ||
-          categoryFilter.includes(catNameKey) ||
-          catSlug.includes(categoryFilter.toLowerCase()) ||
-          categoryFilter.toLowerCase().includes(catSlug);
-        if (!matchesCat) {
-          continue;
-        }
+      if (categoryFilter) {
+        const cat = catId ? categoryById.get(catId) : null;
+        if (!cat || !matchesCategoryFilter(cat.nombre, cat.slug, categoryFilter)) continue;
       }
-      if (categoryFilter && !catId) continue;
 
       let bucket = buckets.get(catId ?? "sin-categoria");
       if (!bucket) {
@@ -537,11 +579,14 @@ export class AgentToolsService {
     }));
 
     if (!result.length) {
+      const availableCategories = categories.map((category) => `${category.name} (${category.slug})`);
       return {
         total: 0,
         mensaje: categoryFilter
-          ? `No hay servidores ni unidades en la categoría "${categoryFilter}". Usa consultar_organizacion para ver las categorías disponibles.`
+          ? `No hay servidores ni unidades en la categoría "${args.categoria}". No afirmes que la categoría no existe; puede estar vacía. ` +
+            `Categorías disponibles: ${availableCategories.join(", ") || "ninguna"}.`
           : "No hay servidores agrupados por categoría.",
+        categorias_disponibles: availableCategories,
       };
     }
 

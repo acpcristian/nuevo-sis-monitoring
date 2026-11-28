@@ -82,6 +82,19 @@ export class AgentProfileService {
     ]);
 
     const unitIndex = buildOrgUnitIndex(units);
+    const categoryIndex = new Map<string, NonNullable<(typeof units)[number]["category"]>>();
+    for (const unit of units) {
+      if (!unit.category) continue;
+      categoryIndex.set(normalizedSecretariaKey(unit.category.name), unit.category);
+      categoryIndex.set(unit.category.slug.toLowerCase(), unit.category);
+    }
+    const resolveCategoryFallback = (rawUnit: string) => {
+      const rawKey = normalizedSecretariaKey(rawUnit);
+      for (const [key, category] of categoryIndex) {
+        if (key === rawKey || key.includes(rawKey) || rawKey.includes(key)) return category;
+      }
+      return null;
+    };
 
     const inventorySummary = servers.length
       ? servers
@@ -96,12 +109,13 @@ export class AgentProfileService {
                   entry.tag.value.trim().length > 0
               )?.tag.value.trim() ?? null;
             const unit = rawUnit ? (unitIndex.get(normalizedSecretariaKey(rawUnit)) ?? null) : null;
+            const fallbackCategory = !unit && rawUnit ? resolveCategoryFallback(rawUnit) : null;
             const classification = unit
               ? ` | unidad=${unit.name} | categoría=${unit.category?.name ?? "sin categoría"} | etiquetas=${
                   unit.tags.length ? unit.tags.join(", ") : "sin etiquetas"
                 }`
               : rawUnit
-                ? ` | unidad=${rawUnit} | categoría=sin categoría | etiquetas=sin etiquetas`
+                ? ` | unidad=${rawUnit} | categoría=${fallbackCategory?.name ?? "sin categoría"} | etiquetas=sin etiquetas`
                 : "";
             return `- ${server.name} (${server.ipAddress}, ${server.environment}, salud=${server.healthStatus}, ciclo=${server.lifecycleState})${classification}${services}`;
           })
@@ -159,7 +173,7 @@ export class AgentProfileService {
     blocks.push(`# ESTADO DEL INVENTARIO ({{inventario}})\n${inventorySummary}`.replace("{{inventario}}", "contexto del agente"));
 
     blocks.push(
-      `# ESTRUCTURA ORGANIZACIONAL (categorías y etiquetas)\nCada servidor pertenece a una unidad organizacional (etiqueta \`secretaria\`), y cada unidad tiene una categoría de entidad y etiquetas libres. Las categorías principales son: DESPACHO MUNICIPAL (Despacho del Alcalde y gabinete) y SECRETARÍAS MUNICIPALES (además de Subalcaldías, Empresas Públicas y Direcciones y Unidades). Distingue siempre entre CATEGORÍA (tipo de entidad, p. ej. Despacho Municipal, Secretarías Municipales) y ETIQUETA (área/sector, p. ej. Alcaldía, Gabinete, Finanzas, Salud):\n${taxonomySummary}\n\nFILTRADO Y REVISIÓN DE SERVICIOS POR CATEGORÍA:\n- Si te piden revisar los servidores o los servicios de "Despacho" o "Despacho Municipal", llama a \`consultar_inventario(categoria="despacho")\`. Esta herramienta te devuelve cada servidor individual con su lista completa de servicios y el estado de cada servicio (RUNNING, STOPPED, etc.).\n- Si te piden revisar los servidores o servicios de "Secretarías" o "Secretarías Municipales", llama a \`consultar_inventario(categoria="secretarias")\`.\n- Para un reporte numérico resumido por categoría usa \`reporte_por_categoria(categoria)\`.\n- Después de consultar, detalla con precisión el estado de cada servidor y cada uno de sus servicios.`
+      `# ESTRUCTURA ORGANIZACIONAL (categorías y etiquetas)\nCada servidor pertenece a una unidad organizacional (etiqueta \`secretaria\`), y cada unidad tiene una categoría de entidad y etiquetas libres. Las categorías principales son: DESPACHO MUNICIPAL (Despacho del Alcalde y gabinete) y SECRETARÍAS MUNICIPALES (además de Subalcaldías, Empresas Públicas y Direcciones y Unidades). Distingue siempre entre CATEGORÍA (tipo de entidad, p. ej. Despacho Municipal, Secretarías Municipales) y ETIQUETA (área/sector, p. ej. Alcaldía, Gabinete, Finanzas, Salud):\n${taxonomySummary}\n\nFILTRADO Y REVISIÓN DE SERVICIOS POR CATEGORÍA:\n- Si te piden revisar los servidores o los servicios de "Despacho" o "Despacho Municipal", llama a \`consultar_inventario(categoria="despacho")\`. Esta herramienta te devuelve cada servidor individual con su lista completa de servicios y el estado de cada servicio (RUNNING, STOPPED, etc.).\n- Si te piden revisar los servidores o servicios de "Secretarías" o "Secretarías Municipales", llama a \`consultar_inventario(categoria="secretarias")\`.\n- Para un reporte numérico resumido por categoría usa \`reporte_por_categoria(categoria)\`.\n- Después de consultar, detalla con precisión el estado de cada servidor y cada uno de sus servicios.\n- NUNCA respondas que "no existe esa categoría" ni que el monitoreo solo tiene datos técnicos: las categorías organizacionales SÍ existen en el sistema. Si una consulta devuelve 0 servidores, informa que la categoría existe pero no tiene servidores asignados, o lista las categorías disponibles que devuelve la herramienta.`
     );
 
     if (profile.toolsEnabled) {

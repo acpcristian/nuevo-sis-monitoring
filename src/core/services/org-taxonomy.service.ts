@@ -61,14 +61,23 @@ export interface OrgUnitInput {
 
 export class OrgTaxonomyService {
   /**
-   * Autocura idempotente: si las tablas están vacías siembra el catálogo
-   * institucional. No sobrescribe ediciones existentes.
+   * Autocura idempotente y ADITIVA: agrega al catálogo las categorías y
+   * unidades institucionales que falten, sin sobrescribir las ediciones del
+   * operador. Antes solo sembraba con la tabla vacía, así que las categorías
+   * nuevas (p. ej. Despacho Municipal) nunca llegaban a bases ya existentes y
+   * el agente respondía "no existe esa categoría".
    */
   public static async ensureSeed(): Promise<void> {
-    const categoryCount = await prisma.orgCategory.count();
-    if (categoryCount === 0) {
+    const [existingCategories, existingUnits] = await Promise.all([
+      prisma.orgCategory.findMany({ select: { slug: true } }),
+      prisma.orgUnit.findMany({ select: { name: true } }),
+    ]);
+
+    const knownSlugs = new Set(existingCategories.map((category) => category.slug));
+    const missingCategories = ORG_CATEGORY_SEEDS.filter((category) => !knownSlugs.has(category.slug));
+    if (missingCategories.length) {
       await prisma.orgCategory.createMany({
-        data: ORG_CATEGORY_SEEDS.map((category) => ({
+        data: missingCategories.map((category) => ({
           slug: category.slug,
           name: category.name,
           description: category.description,
@@ -79,13 +88,14 @@ export class OrgTaxonomyService {
       });
     }
 
-    const unitCount = await prisma.orgUnit.count();
-    if (unitCount === 0) {
-      const categories = await prisma.orgCategory.findMany({ select: { id: true, slug: true } });
-      const categoryBySlug = new Map(categories.map((category) => [category.slug, category.id]));
+    const categories = await prisma.orgCategory.findMany({ select: { id: true, slug: true } });
+    const categoryBySlug = new Map(categories.map((category) => [category.slug, category.id]));
 
+    const knownNames = new Set(existingUnits.map((unit) => unit.name));
+    const missingUnits = ORG_UNIT_SEEDS.filter((unit) => !knownNames.has(unit.name));
+    if (missingUnits.length) {
       await prisma.orgUnit.createMany({
-        data: ORG_UNIT_SEEDS.map((unit) => ({
+        data: missingUnits.map((unit) => ({
           name: unit.name,
           categoryId: categoryBySlug.get(unit.categorySlug) ?? null,
           tags: unit.tags,
