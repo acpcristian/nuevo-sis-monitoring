@@ -13,4 +13,5 @@
 - [exportacion-auditoria-alertas](exportacion-auditoria-alertas.md) — Feature 009: export CSV/JSON de auditoria y alertas de seguridad por intentos no autorizados y logins fallidos repetidos
 - [apariencia](apariencia.md) — Feature 010: modulo de apariencia (color principal, modo claro/oscuro, radios y densidad) con tokens SSR, auditoria y verificacion visual/E2E; incluye incidente de credencial rotada
 - [hermes-evolution-integracion-telegram](hermes-evolution-integracion-telegram.md) — Reparación de Hermes en Coolify + integración COMPLETA verificada E2E: canal TELEGRAM push, servidor MCP en /api/v1/mcp, claves de servicio, OpenRouter configurado
+- [hermes-categoria-despacho-mcp](hermes-categoria-despacho-mcp.md) — Hermes decía "no existe esa categoría": argumentos del MCP descartados + Despacho sin sembrar; reparado y verificado en vivo
 - [rediseño-ui-nexocontrol](rediseño-ui-nexocontrol.md) — Rediseño institucional: sidebar fija (TopNav eliminado), preset nexo #526fdf, vistas Secretarías por etiqueta, modal de alta y verificacion manual 15/15
