@@ -299,15 +299,12 @@ export class AgentToolsService {
 
     const filtered = classified.filter((server) => {
       if (categoryFilter) {
+        if (!server.categoria && !server._categoria_key) return false;
         const nameKey = server.categoria ? normalizedSecretariaKey(server.categoria) : "";
         const slugKey = (server._categoria_key ?? "").toLowerCase();
         const matchesCategory =
-          nameKey === categoryFilter ||
-          slugKey === categoryFilter.toLowerCase() ||
-          nameKey.includes(categoryFilter) ||
-          categoryFilter.includes(nameKey) ||
-          slugKey.includes(categoryFilter.toLowerCase()) ||
-          categoryFilter.toLowerCase().includes(slugKey);
+          (nameKey && (nameKey === categoryFilter || nameKey.includes(categoryFilter) || categoryFilter.includes(nameKey))) ||
+          (slugKey && (slugKey === categoryFilter.toLowerCase() || slugKey.includes(categoryFilter.toLowerCase()) || categoryFilter.toLowerCase().includes(slugKey)));
         if (!matchesCategory) return false;
       }
       if (tagFilter) {
