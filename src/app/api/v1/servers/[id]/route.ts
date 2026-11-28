@@ -101,6 +101,30 @@ export async function PATCH(
         });
       }
 
+      // Actualizar etiquetas si se proporcionaron
+      if (validated.tags !== undefined) {
+        // Eliminar etiquetas existentes asociadas a este servidor
+        await tx.serverTag.deleteMany({
+          where: { serverId: id },
+        });
+
+        // Crear/vincular las nuevas etiquetas
+        for (const tagInput of validated.tags) {
+          const tag = await tx.tag.upsert({
+            where: { key_value: { key: tagInput.key, value: tagInput.value } },
+            update: {},
+            create: { key: tagInput.key, value: tagInput.value },
+          });
+
+          await tx.serverTag.create({
+            data: {
+              serverId: id,
+              tagId: tag.id,
+            },
+          });
+        }
+      }
+
       return server;
     });
 
