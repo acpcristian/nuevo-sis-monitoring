@@ -39,6 +39,7 @@ type StatusFilter = "ALL" | "OK" | "WARN" | "DOWN";
 
 interface FiltersState {
   search: string;
+  categoria: string; // slug o id de categoría ("ALL", "despacho", etc.)
   secretaria: string; // id del contenedor (valor del tag) o "ALL"
   status: StatusFilter;
   showRetired: boolean;
@@ -46,6 +47,7 @@ interface FiltersState {
 
 const INITIAL_FILTERS: FiltersState = {
   search: "",
+  categoria: "ALL",
   secretaria: "ALL",
   status: "ALL",
   showRetired: false,
@@ -274,7 +276,17 @@ export default function ServersPage() {
   const visibleGroups = useMemo(() => {
     if (!secretariaGroups) return [];
     return secretariaGroups
-      .filter((group) => filters.secretaria === "ALL" || group.id === filters.secretaria)
+      .filter((group) => {
+        if (filters.categoria !== "ALL") {
+          const catId = group.category?.id;
+          const catSlug = group.category?.slug;
+          if (catId !== filters.categoria && catSlug !== filters.categoria) return false;
+        }
+        if (filters.secretaria !== "ALL" && group.id !== filters.secretaria) {
+          return false;
+        }
+        return true;
+      })
       .flatMap((group) => {
         if (!activeFilters) {
           return [group];
@@ -294,7 +306,7 @@ export default function ServersPage() {
           },
         ];
       });
-  }, [secretariaGroups, filters.secretaria, activeFilters, searchedServerIds, serverById]);
+  }, [secretariaGroups, filters.categoria, filters.secretaria, activeFilters, searchedServerIds, serverById]);
 
   /** Servidores del ámbito actual (general: todos; interno: la secretaría). */
   const scopeServers = useMemo(
@@ -526,22 +538,48 @@ export default function ServersPage() {
             </div>
 
             {!isInside && (
-              <label className="flex items-center gap-2 rounded-lg border border-[var(--border-2)] bg-white px-3 py-2 text-sm">
-                <span className="text-[var(--text-3)]">Secretaría</span>
-                <select
-                  value={filters.secretaria}
-                  onChange={(event) => setFilters({ ...filters, secretaria: event.target.value })}
-                  className="cursor-pointer bg-transparent font-medium text-[var(--text-1)] focus:outline-none"
-                  aria-label="Filtrar por secretaría"
-                >
-                  <option value="ALL">Todas</option>
-                  {(secretariaGroups ?? []).map((group) => (
-                    <option key={group.id} value={group.id}>
-                      {group.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
+              <>
+                <label className="flex items-center gap-2 rounded-lg border border-[var(--border-2)] bg-white px-3 py-2 text-sm">
+                  <span className="text-[var(--text-3)]">Categoría</span>
+                  <select
+                    value={filters.categoria}
+                    onChange={(event) =>
+                      setFilters({ ...filters, categoria: event.target.value, secretaria: "ALL" })
+                    }
+                    className="cursor-pointer bg-transparent font-medium text-[var(--text-1)] focus:outline-none"
+                    aria-label="Filtrar por categoría de entidad"
+                  >
+                    <option value="ALL">Todas las categorías</option>
+                    {orgCategories.map((cat) => (
+                      <option key={cat.id} value={cat.id}>
+                        {cat.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="flex items-center gap-2 rounded-lg border border-[var(--border-2)] bg-white px-3 py-2 text-sm">
+                  <span className="text-[var(--text-3)]">Secretaría / Unidad</span>
+                  <select
+                    value={filters.secretaria}
+                    onChange={(event) => setFilters({ ...filters, secretaria: event.target.value })}
+                    className="cursor-pointer bg-transparent font-medium text-[var(--text-1)] focus:outline-none"
+                    aria-label="Filtrar por secretaría o unidad"
+                  >
+                    <option value="ALL">Todas</option>
+                    {(secretariaGroups ?? [])
+                      .filter((group) => {
+                        if (filters.categoria === "ALL") return true;
+                        return group.category?.id === filters.categoria || group.category?.slug === filters.categoria;
+                      })
+                      .map((group) => (
+                        <option key={group.id} value={group.id}>
+                          {group.name}
+                        </option>
+                      ))}
+                  </select>
+                </label>
+              </>
             )}
 
             <label className="flex items-center gap-2 rounded-lg border border-[var(--border-2)] bg-white px-3 py-2 text-sm">
